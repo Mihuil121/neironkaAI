@@ -514,7 +514,6 @@
 }
 .userMessage {
   align-self: flex-end;
-  flex-direction: row-reverse;
   .messageContent {
     background: var(--sidebar-btn-bg);
     color: var(--foreground);
