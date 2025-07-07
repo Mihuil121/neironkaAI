@@ -39,6 +39,8 @@ interface ChatState {
   toggleWebSearch: (chatId: string) => void;
   changeModel: (chatId: string, modelId: string) => void;
   deleteMessage: (chatId: string, messageId: string) => void;
+  chatThemeLight: boolean; // true — светлая, false — тёмная
+  toggleChatTheme: () => void;
 }
 
 export const useChatStore = create<ChatState>()(
@@ -48,6 +50,8 @@ export const useChatStore = create<ChatState>()(
       currentChatId: null,
       isLoading: false,
       error: null,
+      chatThemeLight: false,
+      toggleChatTheme: () => set((state) => ({ chatThemeLight: !state.chatThemeLight })),
 
       createChat: (title: string, modelId: string = 'neironka') => {
         const newChat: Chat = {

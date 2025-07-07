@@ -1,17 +1,198 @@
 .wrapper {
   display: flex;
   height: 100vh;
-  background: #18181a;
+  background: var(--background);
+}
+
+.wrapper[data-chat-theme='dark'] {
+  --background: #18181a;
+  --foreground: #ededed;
+  --sidebar-bg: #23232a;
+  --sidebar-fg: #ededed;
+  --sidebar-hover-bg: #23232a;
+  --sidebar-active-bg: #23232a;
+  --sidebar-active-fg: #f59e42;
+  --sidebar-btn-bg: #23232a;
+  --sidebar-btn-fg: #ededed;
+  --sidebar-btn-hover-bg: #23232a;
+  --input-bg: #23232a;
+  --input-border: #444;
+  --shadow: rgba(0,0,0,0.4);
+  --border: #333;
+}
+.wrapper[data-chat-theme='light'] {
+  --background: #f7f8fa;
+  --foreground: #23232a;
+  --sidebar-bg: #fff7ed;
+  --sidebar-fg: #23232a;
+  --sidebar-hover-bg: #fbeee0;
+  --sidebar-active-bg: #ffe7c2;
+  --sidebar-active-fg: #f59e42;
+  --sidebar-btn-bg: #fbeee0;
+  --sidebar-btn-fg: #f59e42;
+  --sidebar-btn-hover-bg: #ffe7c2;
+  --input-bg: #fff;
+  --input-border: #f3d9b6;
+  --shadow: 0 2px 16px 0 rgba(245, 158, 66, 0.08);
+  --border: #f3d9b6;
+  .chatInputBar {
+    background: #fff;
+    box-shadow: 0 2px 12px rgba(245, 158, 66, 0.10);
+    border-radius: 22px;
+  }
+  .inputBarInput {
+    background: #fff;
+    color: #23232a;
+    box-shadow: 0 2px 8px rgba(245, 158, 66, 0.08);
+  }
+  .sendBtn {
+    background: #ffe7c2;
+    color: #f59e42;
+    border: none;
+    box-shadow: 0 2px 8px rgba(245, 158, 66, 0.10);
+  }
+  .sendBtn:hover, .sendBtn:focus {
+    background: #f59e42;
+    color: #fff;
+  }
+  .controlBtn {
+    background: #fff7ed;
+    color: #f59e42;
+    border: 1.5px solid #f3d9b6;
+    box-shadow: 0 2px 8px rgba(245, 158, 66, 0.08);
+    transition: background 0.2s, color 0.2s, border 0.2s;
+  }
+  .controlBtn:hover, .controlBtn:focus, .controlBtnActive {
+    background: #ffe7c2;
+    color: #23232a;
+    border-color: #f59e42;
+  }
+  .modelSelector {
+    background: #fff7ed;
+    border-radius: 8px;
+    padding: 2px 8px;
+  }
+  .modelSelect {
+    background: #fff;
+    color: #23232a;
+    border: 1.5px solid #f3d9b6;
+  }
+  .modelSelect:focus {
+    border-color: #f59e42;
+  }
+  .fileChip {
+    background: linear-gradient(135deg, #ffe7c2 0%, #fff7ed 100%);
+    color: #23232a;
+  }
+  .fileChipIcon {
+    color: #f59e42;
+  }
+  .fileChipRemove {
+    background: rgba(245, 158, 66, 0.08);
+    color: #f59e42;
+  }
+  .fileChipRemove:hover {
+    background: rgba(245, 158, 66, 0.18);
+  }
+  .sidebar, .mobileMenu {
+    background: #fff7ed;
+    color: #23232a;
+    border-right: 1px solid #f3d9b6;
+  }
+  .sidebarHeader, .sidebarFooter {
+    background: #fff7ed;
+    color: #23232a;
+    border-bottom: 1px solid #f3d9b6;
+    border-top: 1px solid #f3d9b6;
+  }
+  .chatItem, .chatItemActive {
+    background: #fff7ed;
+    color: #23232a;
+    border-left: 4px solid transparent;
+  }
+  .chatItemActive {
+    background: #ffe7c2;
+    color: #f59e42;
+    border-left: 4px solid #f59e42;
+  }
+  .newChatBox {
+    background: #fff7ed;
+    border-top: 1px solid #f3d9b6;
+  }
+  .newChatInput {
+    background: #fff;
+    color: #23232a;
+    border: 1.5px solid #f3d9b6;
+  }
+  .newChatInput:focus {
+    border-color: #f59e42;
+  }
+  .newChatBtn {
+    background: #ffe7c2;
+    color: #f59e42;
+  }
+  .newChatBtn:hover {
+    background: #f59e42;
+    color: #fff;
+  }
+  .modal {
+    background: #fff;
+    color: #23232a;
+    border: 1.5px solid #f3d9b6;
+    box-shadow: 0 8px 32px rgba(245,158,66,0.10), 0 2px 8px rgba(245,158,66,0.08);
+  }
+  .title {
+    color: #f59e42;
+  }
+  .section {
+    background: none;
+    color: #23232a;
+  }
+  .select, .input {
+    background: #fff7ed;
+    color: #23232a;
+    border: 1.5px solid #f3d9b6;
+  }
+  .select:focus, .input:focus {
+    border-color: #f59e42;
+    background: #fff;
+  }
+  .saveBtn {
+    background: linear-gradient(90deg, #ffe7c2 60%, #f59e42 100%);
+    color: #23232a;
+    border: none;
+  }
+  .saveBtn:hover {
+    background: #f59e42;
+    color: #fff;
+  }
+  .cancelBtn {
+    background: none;
+    color: #23232a;
+    border: 1.5px solid #f3d9b6;
+  }
+  .cancelBtn:hover {
+    background: #fff7ed;
+    color: #f59e42;
+  }
+  .closeBtn {
+    color: #f59e42;
+    background: #fff7ed;
+  }
+  .closeBtn:hover {
+    background: #ffe7c2;
+    color: #23232a;
+  }
 }
 
 .sidebar {
   width: 300px;
-  background: #1a1a1e;
-  color: #fff;
+  background: var(--sidebar-bg);
+  color: var(--sidebar-fg);
   display: flex;
   flex-direction: column;
-  border-right: 1px solid #23232a;
-  box-shadow: 2px 0 16px 0 rgba(0,0,0,0.08);
+  border-right: 1px solid var(--border);
+  box-shadow: 2px 0 16px 0 var(--shadow);
   z-index: 2;
   transition: width 0.3s ease;
 }
@@ -57,7 +238,7 @@
   font-size: 1.5rem;
   font-weight: 700;
   letter-spacing: 1px;
-  border-bottom: 1px solid #23232a;
+  border-bottom: 1px solid var(--border);
   position: relative;
 }
 .logo {
@@ -74,9 +255,9 @@
   right: 8px;
   top: 50%;
   transform: translateY(-50%);
-  background: #23232a;
+  background: var(--sidebar-btn-bg);
   border: none;
-  color: #888;
+  color: var(--sidebar-btn-fg);
   font-size: 1rem;
   cursor: pointer;
   padding: 6px;
@@ -87,8 +268,8 @@
   justify-content: center;
 
   &:hover {
-    background: #29292f;
-    color: #f59e42;
+    background: var(--sidebar-btn-hover-bg);
+    color: var(--accent);
   }
 }
 
@@ -106,16 +287,16 @@
   border-left: 4px solid transparent;
   transition: background 0.2s, border-color 0.2s;
   font-size: 1.08rem;
-  color: #e5e7eb;
+  color: var(--sidebar-fg);
   gap: 8px;
 }
 .chatItem:hover {
-  background: #23232a;
+  background: var(--sidebar-hover-bg);
 }
 .chatItemActive {
-  background: #23232a;
-  border-left: 4px solid #f59e42;
-  color: #fff;
+  background: var(--sidebar-active-bg);
+  border-left: 4px solid var(--accent);
+  color: var(--sidebar-active-fg);
 }
 .chatTitle {
   flex: 1;
@@ -140,7 +321,7 @@
 .shareChatBtn {
   background: none;
   border: none;
-  color: #888;
+  color: var(--sidebar-btn-fg);
   font-size: 1.1rem;
   cursor: pointer;
   padding: 0 4px;
@@ -149,13 +330,13 @@
 }
 
 .shareChatBtn:hover {
-  background: #29292f;
-  color: #f59e42;
+  background: var(--sidebar-btn-hover-bg);
+  color: var(--accent);
 }
 .deleteChatBtn {
   background: none;
   border: none;
-  color: #888;
+  color: var(--sidebar-btn-fg);
   font-size: 1.2rem;
   cursor: pointer;
   padding: 0 4px;
@@ -163,7 +344,7 @@
   transition: background 0.2s, color 0.2s;
 }
 .deleteChatBtn:hover {
-  background: #29292f;
+  background: var(--sidebar-btn-hover-bg);
   color: #f87171;
 }
 .emptyChats {
@@ -177,25 +358,25 @@
   align-items: center;
   gap: 8px;
   padding: 16px 24px;
-  border-top: 1px solid #23232a;
+  border-top: 1px solid var(--border);
 }
 .newChatInput {
   flex: 1;
   padding: 10px 14px;
   border-radius: 8px;
-  border: 1px solid #23232a;
-  background: #23232a;
-  color: #fff;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  color: var(--foreground);
   font-size: 1rem;
   outline: none;
   transition: border 0.2s;
 }
 .newChatInput:focus {
-  border: 1.5px solid #f59e42;
+  border: 1.5px solid var(--accent);
 }
 .newChatBtn {
-  background: #23232a;
-  color: #f59e42;
+  background: var(--sidebar-btn-bg);
+  color: var(--accent);
   border: none;
   border-radius: 8px;
   font-size: 1.3rem;
@@ -205,12 +386,12 @@
   transition: background 0.2s;
 }
 .newChatBtn:hover {
-  background: #29292f;
+  background: var(--sidebar-btn-hover-bg);
 }
 
 .sidebarFooter {
   padding: 18px 24px;
-  border-top: 1px solid #23232a;
+  border-top: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -225,8 +406,8 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: #23232a;
-  color: #f59e42;
+  background: var(--sidebar-btn-bg);
+  color: var(--accent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -235,7 +416,7 @@
 }
 .userNameSidebar {
   font-size: 1rem;
-  color: #e5e7eb;
+  color: var(--foreground);
 }
 .logoutSidebar {
   background: none;
@@ -248,7 +429,7 @@
   transition: background 0.2s;
 }
 .logoutSidebar:hover {
-  background: #29292f;
+  background: var(--sidebar-btn-hover-bg);
 }
 
 /* Main Chat Area */
@@ -256,16 +437,16 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: #18181a;
-  color: #fff;
+  background: var(--background);
+  color: var(--foreground);
   min-width: 0;
 }
 .header {
   display: flex;
   align-items: center;
   padding: 32px 32px 16px 32px;
-  border-bottom: 1px solid #23232a;
-  background: #18181a;
+  border-bottom: 1px solid var(--border);
+  background: var(--background);
 }
 .userInfo {
   display: flex;
@@ -276,8 +457,8 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: #23232a;
-  color: #f59e42;
+  background: var(--sidebar-btn-bg);
+  color: var(--accent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -288,7 +469,7 @@
   margin: 0;
   font-size: 1.1rem;
   font-weight: 600;
-  color: #fff;
+  color: var(--foreground);
 }
 .status {
   font-size: 0.9rem;
@@ -306,7 +487,7 @@
 }
 .welcomeMessage {
   text-align: center;
-  color: #fff;
+  color: var(--foreground);
   margin: auto;
   max-width: 400px;
   opacity: 0.7;
@@ -335,16 +516,16 @@
   align-self: flex-end;
   flex-direction: row-reverse;
   .messageContent {
-    background: #23232a;
-    color: #fff;
+    background: var(--sidebar-btn-bg);
+    color: var(--foreground);
     border-radius: 18px 18px 4px 18px;
   }
 }
 .aiMessage {
   align-self: flex-start;
   .messageContent {
-    background: #23232a;
-    color: #f59e42;
+    background: var(--sidebar-btn-bg);
+    color: var(--accent);
     border-radius: 18px 18px 18px 4px;
   }
 }
@@ -368,8 +549,8 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: #23232a;
-  color: #f59e42;
+  background: var(--sidebar-btn-bg);
+  color: var(--accent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -383,7 +564,7 @@
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: #f59e42;
+    background: var(--accent);
     opacity: 0.7;
     animation: typing 1.4s infinite ease-in-out;
     &:nth-child(1) { animation-delay: -0.32s; }
@@ -402,7 +583,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #f59e42;
+  color: var(--accent);
   font-weight: 600;
   font-size: 1rem;
 }
@@ -420,7 +601,7 @@
     width: 10px;
     height: 10px;
     border-radius: 50%;
-    background: #f59e42;
+    background: var(--accent);
     opacity: 0.6;
     animation: thinking 1.8s infinite ease-in-out;
     &:nth-child(1) { animation-delay: -0.6s; }
@@ -1086,6 +1267,7 @@
     align-items: center;
     height: 38px;
     min-height: 0;
+    
   }
   .controlBtn, .modelSelector {
     height: 32px;
@@ -1609,6 +1791,46 @@
     color: #23232a;
     box-shadow: 0 4px 16px rgba(245,158,66,0.18);
   }
+  .bottomControls {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 10px;
+    width: 98vw;
+    margin: 0 auto;
+    z-index: 100;
+    background: var(--background);
+    border-radius: 18px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+    padding: 8px 8px 10px 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    max-width: 98vw;
+  }
+  .chatInputBar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 64px; /* чуть выше .bottomControls */
+    width: 98vw;
+    margin: 0 auto;
+    z-index: 101;
+    background: var(--background);
+    border-radius: 18px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+    padding: 8px 8px 10px 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 98vw;
+  }
+  .inputBarInput {
+    background: var(--input-bg);
+    color: var(--foreground);
+    border: 1.5px solid var(--input-border);
+  }
 }
 
 .sendBtn:disabled {
@@ -1673,5 +1895,33 @@
     font-size: 1.6rem;
     top: 10px;
     right: 10px;
+  }
+}
+
+@media (max-width: 400px) {
+  .bottomControls {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 4px !important;
+    padding: 2px 2px 2px 2px !important;
+    min-width: 0;
+    scrollbar-width: thin;
+  }
+  .leftControls, .rightControls {
+    flex-wrap: nowrap;
+    gap: 4px !important;
+    min-width: 0;
+  }
+  .controlBtn, .sendBtn, .modelSelector, .fileChip, .settingsBtn {
+    min-width: 36px;
+    min-height: 36px;
+    font-size: 0.95em;
+    padding: 4px 6px !important;
+    border-radius: 8px !important;
+  }
+  .modelSelect {
+    min-width: 80px;
+    font-size: 0.95em;
+    padding: 4px 6px;
   }
 }

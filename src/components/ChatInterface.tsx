@@ -16,6 +16,7 @@ import { supabase } from '@/lib/supabaseClient';
 import Image from 'next/image';
 import Ai from '../image/AI.png'
 import mammoth from 'mammoth';
+import { useTheme } from 'next-themes';
 
 interface Model {
   id: string;
@@ -56,6 +57,15 @@ const isMobile = typeof window !== 'undefined' && window.innerWidth <= 767;
 // Добавить хелпер для очень маленьких экранов
 const isVerySmall = typeof window !== 'undefined' && window.innerWidth <= 420;
 
+function ThemeToggle() {
+  const { theme, setTheme } = useTheme();
+  return (
+    <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} style={{margin: 8, padding: '6px 16px', borderRadius: 8, background: 'var(--accent)', color: 'var(--background)', border: 'none', fontWeight: 600, cursor: 'pointer'}}>
+      {theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
+    </button>
+  );
+}
+
 export default function ChatInterface() {
   const [message, setMessage] = useState('');
   const [newChatTitle, setNewChatTitle] = useState('');
@@ -82,6 +92,7 @@ export default function ChatInterface() {
     toggleReasoning,
     toggleWebSearch,
     clearError,
+    chatThemeLight,
   } = useChatStore();
   const { user, logout, setLanguage, apiKey, setApiKey } = useAuthStore();
   const [collapsedReasoning, setCollapsedReasoning] = useState<{ [msgId: string]: boolean }>({});
@@ -91,7 +102,7 @@ export default function ChatInterface() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
   const [chunkProgress, setChunkProgress] = useState<{stage: string, current: number, total: number} | null>(null);
-  
+
   const { t, language } = useTranslation();
 
   // Выбранный чат
@@ -545,598 +556,598 @@ export default function ChatInterface() {
   const lastAssistantId = lastAssistantIdx !== -1 && currentChat?.messages ? currentChat.messages[currentChat.messages.length - 1 - lastAssistantIdx].id : null;
 
   return (
-    <div className={styles.wrapper}>
-      {/* Sidebar (desktop/tablet only) */}
-      <aside className={`${styles.sidebar} ${isSidebarCollapsed ? styles.sidebarCollapsed : ''}`} style={{ display: typeof window !== 'undefined' && window.innerWidth <= 767 ? 'none' : undefined }}>
-        <div className={styles.sidebarHeader}>
-          <Image src={Ai} alt="AI" width={32} height={32} style={{ borderRadius: '50%' }} />
-          <span className={styles.appName}>Neironka AI</span>
-          <button
-            className={styles.collapseBtn}
-            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-            title={isSidebarCollapsed ? 'Развернуть' : 'Свернуть'}
-          >
-            {isSidebarCollapsed ? <FiChevronRight /> : <FiChevronLeft />}
-          </button>
-        </div>
-        <div className={styles.chatsList}>
-          {chats.length === 0 && (
-            <div className={styles.emptyChats}><FiMessageSquare /> {t('noChats')}</div>
-          )}
-          {chats.map((chat) => (
-            <div
-              key={chat.id}
-              className={
-                chat.id === currentChatId
-                  ? styles.chatItemActive
-                  : styles.chatItem
-              }
-              onClick={() => selectChat(chat.id)}
-            >
-              <span className={styles.chatTitle}><FiMessageSquare style={{marginRight: 6}} />{chat.title}</span>
-              <div className={styles.chatActions}>
-                <button
-                  className={styles.shareChatBtn}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowShareModal(true);
-                  }}
-                  title="Поделиться чатом"
-                >
-                  <FiShare2 />
-                </button>
-                <button
-                  className={styles.deleteChatBtn}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteChat(chat.id);
-                  }}
-                  title={t('deleteChat')}
-                >
-                  <FiTrash2 />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className={styles.newChatBox}>
-          <input
-            type="text"
-            placeholder={t('chatTitle')}
-            value={newChatTitle}
-            onChange={(e) => setNewChatTitle(e.target.value)}
-            className={styles.newChatInput}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleCreateChat();
-            }}
-          />
-          <button className={styles.newChatBtn} onClick={handleCreateChat} title={t('newChat')}>
-            <FiPlus />
-          </button>
-        </div>
-        <div className={styles.sidebarFooter}>
-          <div className={styles.userInfoSidebar}>
-            <span className={styles.avatarSidebar}><FiUser /></span>
-            <span className={styles.userNameSidebar}>{user?.name || t('user')}</span>
-          </div>
-          <button className={styles.logoutSidebar} onClick={logout} title={t('logout')}>
-            <FiLogOut />
-          </button>
-        </div>
-      </aside>
-
-      {/* Мобильное меню (гамбургер) */}
-      {typeof window !== 'undefined' && window.innerWidth <= 767 && (
-        <>
-          <div className={styles.mobileHeader}>
+    <>
+      <div className={styles.wrapper} data-chat-theme={chatThemeLight ? 'light' : 'dark'}>
+        {/* Sidebar (desktop/tablet only) */}
+        <aside className={`${styles.sidebar} ${isSidebarCollapsed ? styles.sidebarCollapsed : ''}`} style={{ display: typeof window !== 'undefined' && window.innerWidth <= 767 ? 'none' : undefined }}>
+          <div className={styles.sidebarHeader}>
             <Image src={Ai} alt="AI" width={32} height={32} style={{ borderRadius: '50%' }} />
             <span className={styles.appName}>Neironka AI</span>
-            <button className={styles.menuBtn} onClick={() => setMobileMenuOpen(true)} title="Открыть меню">
-              <FiMenu />
+            <button
+              className={styles.collapseBtn}
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              title={isSidebarCollapsed ? 'Развернуть' : 'Свернуть'}
+            >
+              {isSidebarCollapsed ? <FiChevronRight /> : <FiChevronLeft />}
             </button>
           </div>
-          {mobileMenuOpen && (
-            <div className={styles.mobileMenuOverlay} onClick={() => setMobileMenuOpen(false)}>
-              <div className={styles.mobileMenu} onClick={e => e.stopPropagation()}>
-                <div className={styles.mobileMenuHeader}>
-                  <span className={styles.mobileMenuTitle}>Чаты</span>
-                  <button className={styles.mobileMenuCloseBtn} onClick={() => setMobileMenuOpen(false)} title="Закрыть меню">
-                    <FiX size={28} />
+          <div className={styles.chatsList}>
+            {chats.length === 0 && (
+              <div className={styles.emptyChats}><FiMessageSquare /> {t('noChats')}</div>
+            )}
+            {chats.map((chat) => (
+              <div
+                key={chat.id}
+                className={
+                  chat.id === currentChatId
+                    ? styles.chatItemActive
+                    : styles.chatItem
+                }
+                onClick={() => selectChat(chat.id)}
+              >
+                <span className={styles.chatTitle}><FiMessageSquare style={{marginRight: 6}} />{chat.title}</span>
+                <div className={styles.chatActions}>
+                  <button
+                    className={styles.shareChatBtn}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowShareModal(true);
+                    }}
+                    title="Поделиться чатом"
+                  >
+                    <FiShare2 />
                   </button>
-                </div>
-                <div className={styles.chatsList}>
-                  {chats.length === 0 && (
-                    <div className={styles.emptyChats}><FiMessageSquare /> {t('noChats')}</div>
-                  )}
-                  {chats.map((chat) => (
-                    <div
-                      key={chat.id}
-                      className={chat.id === currentChatId ? styles.chatItemActive : styles.chatItem}
-                      onClick={() => { selectChat(chat.id); setMobileMenuOpen(false); }}
-                    >
-                      <span className={styles.chatTitle}><FiMessageSquare style={{marginRight: 6}} />{chat.title}</span>
-                      <div className={styles.chatActions}>
-                        <button
-                          className={styles.shareChatBtn}
-                          onClick={(e) => { e.stopPropagation(); setShowShareModal(true); }}
-                          title="Поделиться чатом"
-                        >
-                          <FiShare2 />
-                        </button>
-                        <button
-                          className={styles.deleteChatBtn}
-                          onClick={(e) => { e.stopPropagation(); deleteChat(chat.id); }}
-                          title={t('deleteChat')}
-                        >
-                          <FiTrash2 />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className={styles.newChatBox}>
-                  <input
-                    type="text"
-                    placeholder={t('chatTitle')}
-                    value={newChatTitle}
-                    onChange={(e) => setNewChatTitle(e.target.value)}
-                    className={styles.newChatInput}
-                    onKeyDown={(e) => { if (e.key === 'Enter') handleCreateChat(); }}
-                  />
-                  <button className={styles.newChatBtn} onClick={handleCreateChat} title={t('newChat')}>
-                    <FiPlus />
-                  </button>
-                </div>
-                <div className={styles.sidebarFooter}>
-                  <div className={styles.userInfoSidebar}>
-                    <span className={styles.avatarSidebar}><FiUser /></span>
-                    <span className={styles.userNameSidebar}>{user?.name || t('user')}</span>
-                  </div>
-                  <button className={styles.logoutSidebar} onClick={logout} title={t('logout')}>
-                    <FiLogOut />
+                  <button
+                    className={styles.deleteChatBtn}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteChat(chat.id);
+                    }}
+                    title={t('deleteChat')}
+                  >
+                    <FiTrash2 />
                   </button>
                 </div>
               </div>
+            ))}
+          </div>
+          <div className={styles.newChatBox}>
+            <input
+              type="text"
+              placeholder={t('chatTitle')}
+              value={newChatTitle}
+              onChange={(e) => setNewChatTitle(e.target.value)}
+              className={styles.newChatInput}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleCreateChat();
+              }}
+            />
+            <button className={styles.newChatBtn} onClick={handleCreateChat} title={t('newChat')}>
+              <FiPlus />
+            </button>
+          </div>
+          <div className={styles.sidebarFooter}>
+            <div className={styles.userInfoSidebar}>
+              <span className={styles.avatarSidebar}><FiUser /></span>
+              <span className={styles.userNameSidebar}>{user?.name || t('user')}</span>
             </div>
-          )}
-        </>
-      )}
+            <button className={styles.logoutSidebar} onClick={logout} title={t('logout')}>
+              <FiLogOut />
+            </button>
+          </div>
+        </aside>
 
-      {/* Main Chat Area */}
-      <main className={styles.chatContainer}>
-        {/* <div className={styles.header}> ... </div> */}
-
-        <div className={styles.messagesContainer}>
-          {!currentChat || currentChat.messages.length === 0 ? (
-            <div className={styles.welcomeMessage}>
-              <div className={styles.welcomeIcon}><Image src={Ai} alt="AI" width={64} height={64} style={{ borderRadius: '50%' }} /></div>
-              <h2>{t('welcome')}</h2>
-              <p>{t('welcomeSubtitle')}</p>
+        {/* Мобильное меню (гамбургер) */}
+        {typeof window !== 'undefined' && window.innerWidth <= 767 && (
+          <>
+            <div className={styles.mobileHeader}>
+              <Image src={Ai} alt="AI" width={32} height={32} style={{ borderRadius: '50%' }} />
+              <span className={styles.appName}>Neironka AI</span>
+              <button className={styles.menuBtn} onClick={() => setMobileMenuOpen(true)} title="Открыть меню">
+                <FiMenu />
+              </button>
             </div>
-          ) : (
-            currentChat.messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`${styles.message} ${
-                  msg.role === 'user' ? styles.userMessage : styles.aiMessage
-                }`}
-              >
-                <div className={styles.messageContent}>
-                  {/* Если это AI-сообщение с reasoning/answer — кастомный рендер */}
-                  {msg.role === 'assistant' && msg.reasoning ? (
-                    <div className={styles.aiReasoningBlock}>
-                      <div className={styles.reasoningHeader}>
-                        <span className={styles.reasoningTitle}>
-                          <FiZap className={styles.reasoningIcon} />
-                          {collapsedReasoning[msg.id] ? t('reasoningCollapsed') : t('reasoning')}
-                        </span>
-                        <button className={styles.collapseBtn} onClick={() => setCollapsedReasoning(prev => ({ ...prev, [msg.id]: !prev[msg.id] }))} title={collapsedReasoning[msg.id] ? t('expandReasoning') : t('collapseReasoning')}>
-                          {collapsedReasoning[msg.id] ? <FiPlus /> : <FiX />}
-                        </button>
+            {mobileMenuOpen && (
+              <div className={styles.mobileMenuOverlay} onClick={() => setMobileMenuOpen(false)}>
+                <div className={styles.mobileMenu} onClick={e => e.stopPropagation()}>
+                  <div className={styles.mobileMenuHeader}>
+                    <span className={styles.mobileMenuTitle}>Чаты</span>
+                    <button className={styles.mobileMenuCloseBtn} onClick={() => setMobileMenuOpen(false)} title="Закрыть меню">
+                      <FiX size={28} />
+                    </button>
+                  </div>
+                  <div className={styles.chatsList}>
+                    {chats.length === 0 && (
+                      <div className={styles.emptyChats}><FiMessageSquare /> {t('noChats')}</div>
+                    )}
+                    {chats.map((chat) => (
+                      <div
+                        key={chat.id}
+                        className={chat.id === currentChatId ? styles.chatItemActive : styles.chatItem}
+                        onClick={() => { selectChat(chat.id); setMobileMenuOpen(false); }}
+                      >
+                        <span className={styles.chatTitle}><FiMessageSquare style={{marginRight: 6}} />{chat.title}</span>
+                        <div className={styles.chatActions}>
+                          <button
+                            className={styles.shareChatBtn}
+                            onClick={(e) => { e.stopPropagation(); setShowShareModal(true); }}
+                            title="Поделиться чатом"
+                          >
+                            <FiShare2 />
+                          </button>
+                          <button
+                            className={styles.deleteChatBtn}
+                            onClick={(e) => { e.stopPropagation(); deleteChat(chat.id); }}
+                            title={t('deleteChat')}
+                          >
+                            <FiTrash2 />
+                          </button>
+                        </div>
                       </div>
-                      {/* Reasoning (мышление) — только если не свернуто */}
-                      {!collapsedReasoning[msg.id] && msg.reasoning && (
-                        <div className={styles.reasoningText}>
-                          <MessageRenderer content={msg.reasoning} />
-                        </div>
-                      )}
-                      {/* Кнопки снизу reasoning */}
-                      <div style={{display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8}}>
-                        <button className={styles.copyBtn} onClick={() => navigator.clipboard.writeText(msg.reasoning || '')} title="Скопировать reasoning"><FiCopy /></button>
-                        <button className={styles.regenBtn} onClick={() => handleRegenerate(msg)} title="Перегенерировать reasoning"><FiRefreshCw /></button>
-                      </div>
-                      {/* Финальный ответ — всегда показывать, даже если reasoning свернут */}
-                      {msg.answer ? (
-                        <div className={styles.answerText}>
-                          <div className={styles.answerHeader}>
-                            <span className={styles.answerTitle}>{t('finalAnswer')}</span>
-                          </div>
-                          <MessageRenderer content={msg.answer} />
-                          {/* Кнопки снизу финального ответа */}
-                          <div style={{display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8}}>
-                            <button className={styles.copyBtn} onClick={() => navigator.clipboard.writeText(msg.answer || '')} title="Скопировать ответ"><FiCopy /></button>
-                            <button className={styles.regenBtn} onClick={() => handleRegenerate(msg)} title="Перегенерировать ответ"><FiRefreshCw /></button>
-                          </div>
-                          {/* Кнопки ссылок, если есть searchSources */}
-                          {Array.isArray(msg.searchSources) && msg.searchSources.length > 0 && (
-                            <div style={{marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center'}}>
-                              {msg.searchSources.slice(0, 4).map((source, idx) => {
-                                const processedSource = typeof source === 'string' ? {
-                                  title: new URL(source).hostname,
-                                  url: source,
-                                  favicon: `https://www.google.com/s2/favicons?domain=${new URL(source).hostname}`
-                                } : source;
-                                return processedSource ? (
-                                  <a
-                                    key={idx}
-                                    href={processedSource.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    style={{
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      background: '#23232a',
-                                      color: '#fff',
-                                      border: '1px solid #444',
-                                      borderRadius: 6,
-                                      padding: '3px 10px 3px 6px',
-                                      fontWeight: 500,
-                                      fontSize: 14,
-                                      textDecoration: 'none',
-                                      gap: 4,
-                                      marginRight: 4
-                                    }}
-                                  >
-                                    {processedSource.favicon && (
-                                      <img src={processedSource.favicon} alt="" width={16} height={16} style={{marginRight: 4, borderRadius: 3}} />
-                                    )}
-                                    {processedSource.title}
-                                  </a>
-                                ) : null;
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className={styles.answerText}>
-                          <div className={styles.answerHeader}>
-                            <span className={styles.answerTitle}>{t('finalAnswer')}</span>
-                          </div>
-                          <div style={{color: '#ffb74d', opacity: 0.8, fontStyle: 'italic', fontSize: '1em', padding: '8px 0'}}>
-                            Нет финального ответа
-                          </div>
-                        </div>
-                      )}
-                      <div className={styles.messageTime}>{formatTime(msg.timestamp)}</div>
+                    ))}
+                  </div>
+                  <div className={styles.newChatBox}>
+                    <input
+                      type="text"
+                      placeholder={t('chatTitle')}
+                      value={newChatTitle}
+                      onChange={(e) => setNewChatTitle(e.target.value)}
+                      className={styles.newChatInput}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleCreateChat(); }}
+                    />
+                    <button className={styles.newChatBtn} onClick={handleCreateChat} title={t('newChat')}>
+                      <FiPlus />
+                    </button>
+                  </div>
+                  <div className={styles.sidebarFooter}>
+                    <div className={styles.userInfoSidebar}>
+                      <span className={styles.avatarSidebar}><FiUser /></span>
+                      <span className={styles.userNameSidebar}>{user?.name || t('user')}</span>
                     </div>
-                  ) : (
-                    <>
-                      <div className={styles.messageText}>
-                        <MessageRenderer content={msg.role === 'assistant' && msg.answer ? msg.answer : msg.content} />
+                    <button className={styles.logoutSidebar} onClick={logout} title={t('logout')}>
+                      <FiLogOut />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Main Chat Area */}
+        <main className={styles.chatContainer}>
+          <div className={styles.messagesContainer}>
+            {!currentChat || currentChat.messages.length === 0 ? (
+              <div className={styles.welcomeMessage}>
+                <div className={styles.welcomeIcon}><Image src={Ai} alt="AI" width={64} height={64} style={{ borderRadius: '50%' }} /></div>
+                <h2>{t('welcome')}</h2>
+                <p>{t('welcomeSubtitle')}</p>
+              </div>
+            ) : (
+              currentChat.messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`${styles.message} ${
+                    msg.role === 'user' ? styles.userMessage : styles.aiMessage
+                  }`}
+                >
+                  <div className={styles.messageContent}>
+                    {/* Если это AI-сообщение с reasoning/answer — кастомный рендер */}
+                    {msg.role === 'assistant' && msg.reasoning ? (
+                      <div className={styles.aiReasoningBlock}>
+                        <div className={styles.reasoningHeader}>
+                          <span className={styles.reasoningTitle}>
+                            <FiZap className={styles.reasoningIcon} />
+                            {collapsedReasoning[msg.id] ? t('reasoningCollapsed') : t('reasoning')}
+                          </span>
+                          <button className={styles.collapseBtn} onClick={() => setCollapsedReasoning(prev => ({ ...prev, [msg.id]: !prev[msg.id] }))} title={collapsedReasoning[msg.id] ? t('expandReasoning') : t('collapseReasoning')}>
+                            {collapsedReasoning[msg.id] ? <FiPlus /> : <FiX />}
+                          </button>
+                        </div>
+                        {/* Reasoning (мышление) — только если не свернуто */}
+                        {!collapsedReasoning[msg.id] && msg.reasoning && (
+                          <div className={styles.reasoningText}>
+                            <MessageRenderer content={msg.reasoning} />
+                          </div>
+                        )}
+                        {/* Кнопки снизу reasoning */}
+                        <div style={{display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8}}>
+                          <button className={styles.copyBtn} onClick={() => navigator.clipboard.writeText(msg.reasoning || '')} title="Скопировать reasoning"><FiCopy /></button>
+                          <button className={styles.regenBtn} onClick={() => handleRegenerate(msg)} title="Перегенерировать reasoning"><FiRefreshCw /></button>
+                        </div>
+                        {/* Финальный ответ — всегда показывать, даже если reasoning свернут */}
+                        {msg.answer ? (
+                          <div className={styles.answerText}>
+                            <div className={styles.answerHeader}>
+                              <span className={styles.answerTitle}>{t('finalAnswer')}</span>
+                            </div>
+                            <MessageRenderer content={msg.answer} />
+                            {/* Кнопки снизу финального ответа */}
+                            <div style={{display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8}}>
+                              <button className={styles.copyBtn} onClick={() => navigator.clipboard.writeText(msg.answer || '')} title="Скопировать ответ"><FiCopy /></button>
+                              <button className={styles.regenBtn} onClick={() => handleRegenerate(msg)} title="Перегенерировать ответ"><FiRefreshCw /></button>
+                            </div>
+                            {/* Кнопки ссылок, если есть searchSources */}
+                            {Array.isArray(msg.searchSources) && msg.searchSources.length > 0 && (
+                              <div style={{marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center'}}>
+                                {msg.searchSources.slice(0, 4).map((source, idx) => {
+                                  const processedSource = typeof source === 'string' ? {
+                                    title: new URL(source).hostname,
+                                    url: source,
+                                    favicon: `https://www.google.com/s2/favicons?domain=${new URL(source).hostname}`
+                                  } : source;
+                                  return processedSource ? (
+                                    <a
+                                      key={idx}
+                                      href={processedSource.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        background: '#23232a',
+                                        color: '#fff',
+                                        border: '1px solid #444',
+                                        borderRadius: 6,
+                                        padding: '3px 10px 3px 6px',
+                                        fontWeight: 500,
+                                        fontSize: 14,
+                                        textDecoration: 'none',
+                                        gap: 4,
+                                        marginRight: 4
+                                      }}
+                                    >
+                                      {processedSource.favicon && (
+                                        <img src={processedSource.favicon} alt="" width={16} height={16} style={{marginRight: 4, borderRadius: 3}} />
+                                      )}
+                                      {processedSource.title}
+                                    </a>
+                                  ) : null;
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className={styles.answerText}>
+                            <div className={styles.answerHeader}>
+                              <span className={styles.answerTitle}>{t('finalAnswer')}</span>
+                            </div>
+                            <div style={{color: '#ffb74d', opacity: 0.8, fontStyle: 'italic', fontSize: '1em', padding: '8px 0'}}>
+                              Нет финального ответа
+                            </div>
+                          </div>
+                        )}
+                        <div className={styles.messageTime}>{formatTime(msg.timestamp)}</div>
                       </div>
-                      {/* Кнопки ссылок для обычных сообщений AI */}
-                      {msg.role === 'assistant' && Array.isArray(msg.searchSources) && msg.searchSources.length > 0 && (
-                        <div style={{marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center'}}>
-                          {(msg.searchSources.length > 0
-                            ? [...msg.searchSources.slice(0, 4), ...Array(4 - Math.min(msg.searchSources.length, 4)).fill(null)]
-                            : Array(4).fill(null)
-                          ).map((source, idx) => {
-                            // Преобразуем строки в объекты, если нужно
-                            const processedSource = typeof source === 'string' ? {
-                              title: new URL(source).hostname,
-                              url: source,
-                              favicon: `https://www.google.com/s2/favicons?domain=${new URL(source).hostname}`
-                            } : source;
-                            
-                            return processedSource ? (
-                              <a
-                                key={idx}
-                                href={processedSource.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  background: '#23232a',
-                                  color: '#fff',
-                                  border: '1px solid #444',
-                                  borderRadius: 6,
-                                  padding: '3px 10px 3px 6px',
-                                  fontWeight: 500,
-                                  fontSize: '0.97em',
-                                  textDecoration: 'none',
-                                  transition: 'background 0.2s, color 0.2s',
-                                  cursor: 'pointer',
-                                  minWidth: 0,
-                                  maxWidth: 120,
-                                  gap: 5,
-                                }}
-                              >
-                                {processedSource.favicon && (
-                                  <img src={processedSource.favicon} alt="" width={16} height={16} style={{marginRight: 4, borderRadius: 3}} />
-                                )}
-                                {processedSource.title}
-                              </a>
-                            ) : (
-                              <span
-                                key={idx}
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  background: '#23232a',
-                                  color: '#888',
-                                  border: '1px dashed #888',
-                                  borderRadius: 6,
-                                  padding: '3px 10px',
-                                  fontWeight: 500,
-                                  fontSize: '0.97em',
-                                  opacity: 0.6,
-                                  cursor: 'not-allowed',
-                                  minWidth: 0,
-                                  maxWidth: 120,
-                                }}
-                              >
-                                —
-                              </span>
-                            );
-                          })}
+                    ) : (
+                      <>
+                        <div className={styles.messageText}>
+                          <MessageRenderer content={msg.role === 'assistant' && msg.answer ? msg.answer : msg.content} />
                         </div>
-                      )}
-                      {msg.role === 'assistant' && !msg.reasoning && msg.id === lastAssistantId && (
-                        <div style={{display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 2}}>
-                          <button className={styles.copyBtn} onClick={() => navigator.clipboard.writeText(msg.answer || msg.content || '')} title="Скопировать ответ"><FiCopy /></button>
-                          <button className={styles.regenBtn} onClick={async () => {
-                            if (isLoading || isThinking || !currentChat) return;
-                            // Найти последнее сообщение пользователя перед этим AI-ответом
-                            const idx = currentChat.messages.findIndex(m => m.id === msg.id);
-                            if (idx === -1) return;
-                            let userMsg = null;
-                            for (let i = idx - 1; i >= 0; i--) {
-                              if (currentChat.messages[i].role === 'user') {
-                                userMsg = currentChat.messages[i];
-                                break;
+                        {/* Кнопки ссылок для обычных сообщений AI */}
+                        {msg.role === 'assistant' && Array.isArray(msg.searchSources) && msg.searchSources.length > 0 && (
+                          <div style={{marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center'}}>
+                            {(msg.searchSources.length > 0
+                              ? [...msg.searchSources.slice(0, 4), ...Array(4 - Math.min(msg.searchSources.length, 4)).fill(null)]
+                              : Array(4).fill(null)
+                            ).map((source, idx) => {
+                              // Преобразуем строки в объекты, если нужно
+                              const processedSource = typeof source === 'string' ? {
+                                title: new URL(source).hostname,
+                                url: source,
+                                favicon: `https://www.google.com/s2/favicons?domain=${new URL(source).hostname}`
+                              } : source;
+                              
+                              return processedSource ? (
+                                <a
+                                  key={idx}
+                                  href={processedSource.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    background: '#23232a',
+                                    color: '#fff',
+                                    border: '1px solid #444',
+                                    borderRadius: 6,
+                                    padding: '3px 10px 3px 6px',
+                                    fontWeight: 500,
+                                    fontSize: '0.97em',
+                                    textDecoration: 'none',
+                                    transition: 'background 0.2s, color 0.2s',
+                                    cursor: 'pointer',
+                                    minWidth: 0,
+                                    maxWidth: 120,
+                                    gap: 5,
+                                  }}
+                                >
+                                  {processedSource.favicon && (
+                                    <img src={processedSource.favicon} alt="" width={16} height={16} style={{marginRight: 4, borderRadius: 3}} />
+                                  )}
+                                  {processedSource.title}
+                                </a>
+                              ) : (
+                                <span
+                                  key={idx}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    background: '#23232a',
+                                    color: '#888',
+                                    border: '1px dashed #888',
+                                    borderRadius: 6,
+                                    padding: '3px 10px',
+                                    fontWeight: 500,
+                                    fontSize: '0.97em',
+                                    opacity: 0.6,
+                                    cursor: 'not-allowed',
+                                    minWidth: 0,
+                                    maxWidth: 120,
+                                  }}
+                                >
+                                  —
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {msg.role === 'assistant' && !msg.reasoning && msg.id === lastAssistantId && (
+                          <div style={{display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 2}}>
+                            <button className={styles.copyBtn} onClick={() => navigator.clipboard.writeText(msg.answer || msg.content || '')} title="Скопировать ответ"><FiCopy /></button>
+                            <button className={styles.regenBtn} onClick={async () => {
+                              if (isLoading || isThinking || !currentChat) return;
+                              // Найти последнее сообщение пользователя перед этим AI-ответом
+                              const idx = currentChat.messages.findIndex(m => m.id === msg.id);
+                              if (idx === -1) return;
+                              let userMsg = null;
+                              for (let i = idx - 1; i >= 0; i--) {
+                                if (currentChat.messages[i].role === 'user') {
+                                  userMsg = currentChat.messages[i];
+                                  break;
+                                }
                               }
-                            }
-                            if (!userMsg || !userMsg.content) return;
-                            // Удалить это AI-сообщение
-                            const chatId = currentChat.id;
-                            useChatStore.getState().deleteMessage(chatId, msg.id);
-                            setIsThinking(true);
-                            try {
-                              await sendMessage(userMsg.content, language, apiKey);
-                            } finally {
-                              setIsThinking(false);
-                            }
-                          }} title="Перегенерировать ответ"><FiRefreshCw /></button>
-                        </div>
-                      )}
-                      <div className={styles.messageTime}>{formatTime(msg.timestamp)}</div>
-                    </>
-                  )}
+                              if (!userMsg || !userMsg.content) return;
+                              // Удалить это AI-сообщение
+                              const chatId = currentChat.id;
+                              useChatStore.getState().deleteMessage(chatId, msg.id);
+                              setIsThinking(true);
+                              try {
+                                await sendMessage(userMsg.content, language, apiKey);
+                              } finally {
+                                setIsThinking(false);
+                              }
+                            }} title="Перегенерировать ответ"><FiRefreshCw /></button>
+                          </div>
+                        )}
+                        <div className={styles.messageTime}>{formatTime(msg.timestamp)}</div>
+                      </>
+                    )}
+                  </div>
+                  <div className={styles.messageAvatar}>
+                    <Image src={Ai} alt="AI" width={32} height={32} style={{ borderRadius: '50%' }} />
+                  </div>
+                </div>
+              ))
+            )}
+
+            {isLoading && (
+              <div className={`${styles.message} ${styles.aiMessage}`}>
+                <div className={styles.messageContent}>
+                  <div className={styles.typingIndicator}>
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
                 </div>
                 <div className={styles.messageAvatar}>
                   <Image src={Ai} alt="AI" width={32} height={32} style={{ borderRadius: '50%' }} />
                 </div>
               </div>
-            ))
-          )}
+            )}
 
-          {isLoading && (
-            <div className={`${styles.message} ${styles.aiMessage}`}>
-              <div className={styles.messageContent}>
-                <div className={styles.typingIndicator}>
-                  <span></span>
-                  <span></span>
-                  <span></span>
-                </div>
-              </div>
-              <div className={styles.messageAvatar}>
-                <Image src={Ai} alt="AI" width={32} height={32} style={{ borderRadius: '50%' }} />
-              </div>
-            </div>
-          )}
-
-          {isThinking && (
-            <div className={`${styles.message} ${styles.aiMessage}`}>
-              <div className={styles.messageContent}>
-                <div className={styles.thinkingIndicator}>
-                  <div className={styles.thinkingText}>
-                    <FiZap className={styles.thinkingIcon} />
-                    Модель думает...
-                  </div>
-                  <div className={styles.thinkingDots}>
-                    <span></span>
-                    <span></span>
-                    <span></span>
+            {isThinking && (
+              <div className={`${styles.message} ${styles.aiMessage}`}>
+                <div className={styles.messageContent}>
+                  <div className={styles.thinkingIndicator}>
+                    <div className={styles.thinkingText}>
+                      <FiZap className={styles.thinkingIcon} />
+                      Модель думает...
+                    </div>
+                    <div className={styles.thinkingDots}>
+                      <span></span>
+                      <span></span>
+                      <span></span>
+                    </div>
                   </div>
                 </div>
+                <div className={styles.messageAvatar}>
+                  <Image src={Ai} alt="AI" width={32} height={32} style={{ borderRadius: '50%' }} />
+                </div>
               </div>
-              <div className={styles.messageAvatar}>
-                <Image src={Ai} alt="AI" width={32} height={32} style={{ borderRadius: '50%' }} />
+            )}
+
+            {isThinking && chunkProgress && (
+              <div style={{textAlign: 'center', color: '#f59e42', fontWeight: 600, margin: '16px 0'}}>
+                {chunkProgress.stage}: {chunkProgress.current} из {chunkProgress.total}
               </div>
-            </div>
-          )}
+            )}
 
-          {isThinking && chunkProgress && (
-            <div style={{textAlign: 'center', color: '#f59e42', fontWeight: 600, margin: '16px 0'}}>
-              {chunkProgress.stage}: {chunkProgress.current} из {chunkProgress.total}
-            </div>
-          )}
-
-          <div ref={messagesEndRef} />
-        </div>
-
-        {error && (
-          <div className={styles.errorMessage}>
-            <span>{error}</span>
-            <button onClick={clearError} className={styles.errorCloмse}>
-              ×
-            </button>
+            <div ref={messagesEndRef} />
           </div>
-        )}
 
-        {/* Input-бар */}
-        <form onSubmit={handleSubmit} className={styles.chatInputBar}>
-          {/* Файл (чип) */}
-          {uploadedFile && (
-            <span className={styles.fileChip}>
-              <FiUpload className={styles.fileChipIcon} />
-              <span className={styles.fileName}>{uploadedFile.name}</span>
-              <button type="button" className={styles.fileChipRemove} onClick={handleRemoveFile} title={t('fileRemove')}>
-                <FiX />
+          {error && (
+            <div className={styles.errorMessage}>
+              <span>{error}</span>
+              <button onClick={clearError} className={styles.errorCloмse}>
+                ×
               </button>
-            </span>
-          )}
-          {/* Input */}
-          <textarea
-            className={styles.inputBarInput}
-            value={message}
-            onChange={e => setMessage(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder={uploadedFile ? `Введите вопрос о файле "${uploadedFile.name}"...` : (currentChat && models.find(m => m.id === currentChat.modelId)?.name ? `${t('message')} ${models.find(m => m.id === currentChat.modelId)?.name}` : t('messagePlaceholder'))}
-            disabled={isLoading || isThinking || !currentChatId}
-            rows={1}
-            style={{ resize: 'none', overflow: 'hidden' }}
-            onInput={(e) => {
-              const target = e.target as HTMLTextAreaElement;
-              target.style.height = 'auto';
-              target.style.height = Math.min(target.scrollHeight, 120) + 'px';
-            }}
-          />
-          {/* Send */}
-          <button
-            type="submit"
-            className={styles.sendBtn}
-            disabled={(!message.trim() && !uploadedFile) || isLoading || isThinking || !currentChatId}
-            title={t('send')}
-          >
-            <FiSend />
-          </button>
-        </form>
-
-        {/* Кнопки под input в form */}
-        <div className={styles.bottomControls}>
-          <div className={styles.leftControls}>
-            {/* DeepThink (мышление) */}
-            <button
-              type="button"
-              className={styles.controlBtn + (currentChat?.reasoningEnabled ? ' ' + styles.controlBtnActive : '')}
-              onClick={handleToggleReasoning}
-              disabled={!currentChat}
-              title={t('deepThinkTooltip')}
-            >
-              <div style={{display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: isMobile ? 'center' : 'flex-start', gap: 4, width: isMobile ? '100%' : undefined}}>
-                <FiZap />
-                {isMobile ? <span style={{fontSize: '0.9em', marginLeft: 4}}>DeepThink</span> : t('deepThink')}
-              </div>
-            </button>
-            {/* Веб-поиск */}
-            <button
-              type="button"
-              className={styles.controlBtn + (currentChat?.webSearchEnabled ? ' ' + styles.controlBtnActive : '')}
-              onClick={handleToggleWebSearch}
-              disabled={!currentChat}
-              title="Включить поиск в интернете"
-            >
-              <div style={{display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: isMobile ? 'center' : 'flex-start', gap: 4, width: isMobile ? '100%' : undefined}}>
-                <FiSearch />
-                {isMobile && !isVerySmall ? <span style={{fontSize: '0.9em', marginLeft: 4}}>Веб-поиск</span> : (!isMobile && 'Веб-поиск')}
-              </div>
-            </button>
-            {/* Выбор модели */}
-            <div className={styles.modelSelector}>
-              <Image src={Ai} alt="AI" width={24} height={24} style={{ borderRadius: '50%' }} />
-              {!isMobile && (
-                <select
-                  className={styles.modelSelect}
-                  value={currentChat?.modelId || ''}
-                  onChange={e => handleModelChange(e.target.value)}
-                  disabled={!currentChat}
-                >
-                  {models.map((model) => (
-                    <option key={model.id} value={model.id}>{model.name}</option>
-                  ))}
-                </select>
-              )}
             </div>
-            {/* Upload */}
-            <button
-              type="button"
-              className={styles.controlBtn}
-              onClick={() => {
-                if (!currentChat?.webSearchEnabled) setShowUploadDropdown(true);
+          )}
+
+          {/* Input-бар */}
+          <form onSubmit={handleSubmit} className={styles.chatInputBar}>
+            {/* Файл (чип) */}
+            {uploadedFile && (
+              <span className={styles.fileChip}>
+                <FiUpload className={styles.fileChipIcon} />
+                <span className={styles.fileName}>{uploadedFile.name}</span>
+                <button type="button" className={styles.fileChipRemove} onClick={handleRemoveFile} title={t('fileRemove')}>
+                  <FiX />
+                </button>
+              </span>
+            )}
+            {/* Input */}
+            <textarea
+              className={styles.inputBarInput}
+              value={message}
+              onChange={e => setMessage(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder={uploadedFile ? `Введите вопрос о файле "${uploadedFile.name}"...` : (currentChat && models.find(m => m.id === currentChat.modelId)?.name ? `${t('message')} ${models.find(m => m.id === currentChat.modelId)?.name}` : t('messagePlaceholder'))}
+              disabled={isLoading || isThinking || !currentChatId}
+              rows={1}
+              style={{ resize: 'none', overflow: 'hidden' }}
+              onInput={(e) => {
+                const target = e.target as HTMLTextAreaElement;
+                target.style.height = 'auto';
+                target.style.height = Math.min(target.scrollHeight, 120) + 'px';
               }}
-              disabled={fileLoading || isLoading || currentChat?.webSearchEnabled}
-              title={currentChat?.webSearchEnabled ? 'Загрузка файлов недоступна при включённом веб-поиске' : t('uploadFile')}
-            >
-              <FiUpload />
-            </button>
-          </div>
-          <div className={styles.rightControls}>
-            {/* Настройки */}
+            />
+            {/* Send */}
             <button
-              type="button"
-              className={styles.controlBtn}
-              onClick={() => setShowSettings(true)}
-              title={t('settingsTooltip')}
+              type="submit"
+              className={styles.sendBtn}
+              disabled={(!message.trim() && !uploadedFile) || isLoading || isThinking || !currentChatId}
+              title={t('send')}
             >
-              <FiSettings />
+              <FiSend />
             </button>
+          </form>
+
+          {/* Кнопки под input в form */}
+          <div className={styles.bottomControls}>
+            <div className={styles.leftControls}>
+              {/* DeepThink (мышление) */}
+              <button
+                type="button"
+                className={styles.controlBtn + (currentChat?.reasoningEnabled ? ' ' + styles.controlBtnActive : '')}
+                onClick={handleToggleReasoning}
+                disabled={!currentChat}
+                title={t('deepThinkTooltip')}
+              >
+                <div style={{display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: isMobile ? 'center' : 'flex-start', gap: 4, width: isMobile ? '100%' : undefined}}>
+                  <FiZap />
+                  {isMobile ? <span style={{fontSize: '0.9em', marginLeft: 4}}>DeepThink</span> : t('deepThink')}
+                </div>
+              </button>
+              {/* Веб-поиск */}
+              <button
+                type="button"
+                className={styles.controlBtn + (currentChat?.webSearchEnabled ? ' ' + styles.controlBtnActive : '')}
+                onClick={handleToggleWebSearch}
+                disabled={!currentChat}
+                title="Включить поиск в интернете"
+              >
+                <div style={{display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: isMobile ? 'center' : 'flex-start', gap: 4, width: isMobile ? '100%' : undefined}}>
+                  <FiSearch />
+                  {isMobile && !isVerySmall ? <span style={{fontSize: '0.9em', marginLeft: 4}}>Веб-поиск</span> : (!isMobile && 'Веб-поиск')}
+                </div>
+              </button>
+              {/* Выбор модели */}
+              <div className={styles.modelSelector}>
+                <Image src={Ai} alt="AI" width={24} height={24} style={{ borderRadius: '50%' }} />
+                {!isMobile && (
+                  <select
+                    className={styles.modelSelect}
+                    value={currentChat?.modelId || ''}
+                    onChange={e => handleModelChange(e.target.value)}
+                    disabled={!currentChat}
+                  >
+                    {models.map((model) => (
+                      <option key={model.id} value={model.id}>{model.name}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              {/* Upload */}
+              <button
+                type="button"
+                className={styles.controlBtn}
+                onClick={() => {
+                  if (!currentChat?.webSearchEnabled) setShowUploadDropdown(true);
+                }}
+                disabled={fileLoading || isLoading || currentChat?.webSearchEnabled}
+                title={currentChat?.webSearchEnabled ? 'Загрузка файлов недоступна при включённом веб-поиске' : t('uploadFile')}
+              >
+                <FiUpload />
+              </button>
+            </div>
+            <div className={styles.rightControls}>
+              {/* Настройки */}
+              <button
+                type="button"
+                className={styles.controlBtn}
+                onClick={() => setShowSettings(true)}
+                title={t('settingsTooltip')}
+              >
+                <FiSettings />
+              </button>
+            </div>
           </div>
-        </div>
 
-        <input
-          type="file"
-          ref={fileInputRef}
-          style={{ display: 'none' }}
-          accept=".txt,.json,.pdf,image/*"
-          onChange={handleFileInputChange}
-          disabled={fileLoading || isLoading || currentChat?.webSearchEnabled}
+          <input
+            type="file"
+            ref={fileInputRef}
+            style={{ display: 'none' }}
+            accept=".txt,.json,.pdf,image/*"
+            onChange={handleFileInputChange}
+            disabled={fileLoading || isLoading || currentChat?.webSearchEnabled}
+          />
+        </main>
+
+        {/* Settings Modal */}
+        <SettingsModal
+          open={showSettings}
+          onClose={() => setShowSettings(false)}
         />
-      </main>
 
-      {/* Settings Modal */}
-      <SettingsModal
-        open={showSettings}
-        onClose={() => setShowSettings(false)}
-      />
+        {/* Upload Dropdown */}
+        <UploadDropdown
+          isOpen={showUploadDropdown}
+          onClose={() => setShowUploadDropdown(false)}
+          onFileUpload={handleFileUpload}
+          onImageUpload={handleImageUpload}
+          onYouTubeUpload={handleYouTubeUpload}
+          onUrlExtract={async (url: string) => {
+            setFileLoading(true);
+            try {
+              const response = await fetch('/api/url-extract', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url })
+              });
+              const data = await response.json();
+              if (!response.ok) throw new Error(data.error || 'Ошибка извлечения текста');
+              // Сразу запускаем обработку большого текста
+              await handleLargeText(data.text);
+            } catch (err) {
+              alert('Ошибка при извлечении текста с сайта');
+            } finally {
+              setFileLoading(false);
+            }
+          }}
+        />
 
-      {/* Upload Dropdown */}
-      <UploadDropdown
-        isOpen={showUploadDropdown}
-        onClose={() => setShowUploadDropdown(false)}
-        onFileUpload={handleFileUpload}
-        onImageUpload={handleImageUpload}
-        onYouTubeUpload={handleYouTubeUpload}
-        onUrlExtract={async (url: string) => {
-          setFileLoading(true);
-          try {
-            const response = await fetch('/api/url-extract', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ url })
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error || 'Ошибка извлечения текста');
-            // Сразу запускаем обработку большого текста
-            await handleLargeText(data.text);
-          } catch (err) {
-            alert('Ошибка при извлечении текста с сайта');
-          } finally {
-            setFileLoading(false);
-          }
-        }}
-      />
-
-      {/* Share Modal */}
-      <ShareModal
-        open={showShareModal}
-        onClose={() => setShowShareModal(false)}
-        chatId={currentChatId || ''}
-        chatTitle={currentChat?.title || 'Новый чат'}
-      />
-    </div>
+        {/* Share Modal */}
+        <ShareModal
+          open={showShareModal}
+          onClose={() => setShowShareModal(false)}
+          chatId={currentChatId || ''}
+          chatTitle={currentChat?.title || 'Новый чат'}
+        />
+      </div>
+    </>
   );
 }
 

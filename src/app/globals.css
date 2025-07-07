@@ -1,6 +1,23 @@
 :root {
+  --bg-color: #ffffff;
+  --text-color: #18181a;
+  --border-color: #e5e7eb;
+  --accent: #f59e42;
+  --sidebar-bg: #f8fafc;
+  --sidebar-fg: #23232a;
+  --sidebar-hover-bg: #f3f4f6;
+  --sidebar-active-bg: #ffe7c2;
+  --sidebar-active-fg: #f59e42;
+  --sidebar-btn-bg: #f3f4f6;
+  --sidebar-btn-fg: #23232a;
+  --sidebar-btn-hover-bg: #ffe7c2;
+  --input-bg: #f8fafc;
+  --input-border: #e5e7eb;
+  --foreground: #18181a;
+  --shadow: rgba(0,0,0,0.06);
   --background: #ffffff;
-  --foreground: #171717;
+  --background-end-rgb: 255, 255, 255;
+  --background-start-rgb: 255, 255, 255;
 }
 
 @media (prefers-color-scheme: dark) {

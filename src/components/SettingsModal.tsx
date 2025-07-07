@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 import styles from './SettingsModal.module.scss';
 import { useTranslation } from '@/lib/translations';
+import { useTheme } from 'next-themes';
+import { useChatStore } from '@/store/useChatStore';
 
 const LANGUAGES = [
   { code: 'ru', label: 'Русский' },
@@ -22,16 +24,8 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const { language, setLanguage, apiKey, setApiKey } = useAuthStore();
   const { t } = useTranslation();
   const [localApiKey, setLocalApiKey] = useState(apiKey);
-  const [theme, setTheme] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('theme') || 'dark';
-    }
-    return 'dark';
-  });
-  const THEMES = [
-    { code: 'dark', label: t('darkTheme') },
-    { code: 'light', label: t('lightTheme') },
-  ];
+  const { theme, setTheme, systemTheme } = useTheme();
+  const { chatThemeLight, toggleChatTheme } = useChatStore();
 
   const handleLangChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newLang = e.target.value;
@@ -45,17 +39,8 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     setLocalApiKey(e.target.value);
   };
 
-  const handleThemeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setTheme(e.target.value);
-  };
-
   const handleSave = () => {
     setApiKey(localApiKey);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('theme', theme);
-      document.body.classList.remove('theme-dark', 'theme-light');
-      document.body.classList.add(`theme-${theme}`);
-    }
     onClose();
   };
 
@@ -89,12 +74,19 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
           </p>
         </div>
         <div className={styles.section}>
-          <label htmlFor="theme">{t('theme')}</label>
-          <select id="theme" value={theme} onChange={handleThemeChange} className={styles.select}>
-            {THEMES.map(l => (
-              <option key={l.code} value={l.code}>{l.label}</option>
-            ))}
-          </select>
+          <label htmlFor="chatThemeSwitch">Тема чата:</label>
+          <button
+            id="chatThemeSwitch"
+            type="button"
+            className={styles.saveBtn}
+            style={{marginBottom: 8, width: '100%'}}
+            onClick={toggleChatTheme}
+          >
+            {chatThemeLight ? 'Светлая тема' : 'Тёмная тема'}
+          </button>
+          <p className={styles.hint}>
+            Меняет оформление только области чата
+          </p>
         </div>
         <div className={styles.actions}>
           <button className={styles.saveBtn} onClick={handleSave}>

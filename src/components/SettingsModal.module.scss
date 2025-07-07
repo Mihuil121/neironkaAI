@@ -172,4 +172,49 @@
     font-size: 0.9rem;
     padding: 10px 16px;
   }
+}
+
+.wrapper[data-chat-theme='light'] .modal {
+  background: #fff;
+  color: #23232a;
+  border: 1.5px solid #f3d9b6;
+  box-shadow: 0 8px 32px rgba(245,158,66,0.10), 0 2px 8px rgba(245,158,66,0.08);
+}
+.wrapper[data-chat-theme='light'] .title {
+  color: #f59e42;
+}
+.wrapper[data-chat-theme='light'] .section {
+  background: none;
+  color: #23232a;
+}
+.wrapper[data-chat-theme='light'] .select, .wrapper[data-chat-theme='light'] .input {
+  background: #fff7ed;
+  color: #23232a;
+  border: 1.5px solid #f3d9b6;
+}
+.wrapper[data-chat-theme='light'] .select:focus, .wrapper[data-chat-theme='light'] .input:focus {
+  border-color: #f59e42;
+  background: #fff;
+}
+.wrapper[data-chat-theme='light'] .saveBtn {
+  background: linear-gradient(90deg, #ffe7c2 60%, #f59e42 100%);
+  color: #23232a;
+  border: none;
+}
+.wrapper[data-chat-theme='light'] .saveBtn:hover {
+  background: #f59e42;
+  color: #fff;
+}
+.wrapper[data-chat-theme='light'] .cancelBtn {
+  background: none;
+  color: #23232a;
+  border: 1.5px solid #f3d9b6;
+}
+.wrapper[data-chat-theme='light'] .cancelBtn:hover {
+  background: #fff7ed;
+  color: #f59e42;
+}
+.wrapper[data-chat-theme='light'] .closeBtn {
+  color: #f59e42;
+  background: #fff7ed;
 } 
