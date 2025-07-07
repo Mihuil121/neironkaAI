@@ -39,7 +39,7 @@ function checkUserLimit(userId: string): boolean {
   return true;
 }
 
-const LMSTUDIO_API_URL = process.env.LMSTUDIO_API_URL || 'http://localhost:1234/v1/chat/completions';
+const LMSTUDIO_API_URL = 'https://myai-api.loca.lt/v1/chat/completions';
 // Функция для работы с LM Studio API
 async function askLMStudio(messages: any[], temperature: number = 0.7, maxTokens: number = 1000) {
   try {
