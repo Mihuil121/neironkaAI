@@ -68,8 +68,7 @@ export async function POST(request: NextRequest) {
         if (!text) {
             return NextResponse.json({ error: 'Не удалось извлечь текст с сайта' }, { status: 422 });
         }
-        const limitedText = text.slice(0, 2000);
-        return NextResponse.json({ text: limitedText });
+        return NextResponse.json({ text });
     } catch (error: any) {
         return NextResponse.json({ error: error.message || 'Ошибка сервера' }, { status: 500 });
     }

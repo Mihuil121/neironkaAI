@@ -15,6 +15,7 @@ import Tesseract from 'tesseract.js';
 import { supabase } from '@/lib/supabaseClient';
 import Image from 'next/image';
 import Ai from '../image/AI.png'
+import mammoth from 'mammoth';
 
 interface Model {
   id: string;
@@ -158,28 +159,22 @@ export default function ChatInterface() {
   }, []);
 
   const compressText = async (text: string, apiKey: string, language: string) => {
-    // Отправить текст на сжатие через sendMessage с промптом "Сократи этот текст до самого важного"
-    return new Promise<string>(async (resolve) => {
-      const prompt = `Сократи этот текст до самого важного:\n\n${text}`;
-      // Используем sendMessage, но не добавляем в чат, а ждем ответ
-      let result = '';
-      try {
-        await sendMessage(prompt, language, apiKey);
-        // Ждем появления нового AI-сообщения (последнего)
-        // (В реальном проекте лучше получать ответ напрямую, но здесь используем стор)
-        // Ждем 2 секунды и берём последний AI-ответ
-        await new Promise(r => setTimeout(r, 2000));
-        const lastChat = useChatStore.getState().chats.find(c => c.id === useChatStore.getState().currentChatId);
-        const lastMsg = lastChat?.messages.filter(m => m.role === 'assistant').slice(-1)[0];
-        result = lastMsg?.answer || lastMsg?.content || '';
-      } catch {
-        result = '';
-      }
-      resolve(result);
-    });
+    // Новый способ: отправляем на /api/compress, не добавляя в чат
+    try {
+      const response = await fetch('/api/compress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, language, apiKey, modelId: currentChat?.modelId || 'neironka' })
+      });
+      const data = await response.json();
+      return data.result || '';
+    } catch {
+      return '';
+    }
   };
 
   const handleLargeText = async (text: string) => {
+    setIsThinking(true);
     let chunks = [];
     for (let i = 0; i < text.length; i += CHUNK_SIZE) {
       chunks.push(text.slice(i, i + CHUNK_SIZE));
@@ -217,28 +212,28 @@ export default function ChatInterface() {
     if (result.length > 5000) {
       alert('Не удалось сжать текст до нужного размера. Попробуйте другой текст или файл.');
       setChunkProgress(null);
+      setIsThinking(false);
       return;
     }
-    setUploadedFile(null); // убираем файл
-    setMessage(result); // подставляем сжатый текст в input для финального вопроса
-    setChunkProgress(null);
+    // После сжатия сразу отправляем финальный результат
+    try {
+      await sendMessage(result, language, apiKey);
+    } finally {
+      setIsThinking(false);
+      setMessage('');
+      setUploadedFile(null);
+      setChunkProgress(null);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if ((message.trim() || uploadedFile) && !isLoading && currentChatId) {
-      // Если длинный текст (вставлен вручную или из файла) — разбиваем и сжимаем
-      if (message.trim().length > 5000) {
-        await handleLargeText(message.trim());
-        return;
-      }
-      // Подготавливаем сообщение с файлом
-      let finalMessage = message.trim();
-      
+      // Если есть файл
       if (uploadedFile) {
+        // 1. Считать содержимое файла
+        let fileContent = '';
         try {
-          let fileContent = '';
-          
           if (uploadedFile.type.startsWith('image/')) {
             const { data: { text } } = await Tesseract.recognize(uploadedFile, 'eng+rus');
             fileContent = text;
@@ -246,31 +241,111 @@ export default function ChatInterface() {
             fileContent = await extractTextFromPDF(uploadedFile);
           } else if (uploadedFile.type.startsWith('text/') || uploadedFile.type === 'application/json') {
             fileContent = await uploadedFile.text();
-          }
-          
-          if (fileContent.trim()) {
-            finalMessage = finalMessage 
-              ? `${finalMessage}\n\n**Содержимое файла "${uploadedFile.name}":**\n\`\`\`\n${fileContent.trim()}\n\`\`\``
-              : `**Содержимое файла "${uploadedFile.name}":**\n\`\`\`\n${fileContent.trim()}\n\`\`\``;
+          } else if (uploadedFile.name.endsWith('.docx')) {
+            const arrayBuffer = await uploadedFile.arrayBuffer();
+            const { value } = await mammoth.extractRawText({ arrayBuffer });
+            fileContent = value;
+          } else if (uploadedFile.name.endsWith('.doc')) {
+            alert('Формат .doc поддерживается ограниченно. Попробуйте сначала сохранить файл как .docx.');
+            fileContent = '';
           }
         } catch (err) {
-          finalMessage = finalMessage 
-            ? `${finalMessage}\n\n[Ошибка извлечения текста из файла "${uploadedFile.name}"]`
-            : `[Ошибка извлечения текста из файла "${uploadedFile.name}"]`;
+          fileContent = `[Ошибка извлечения текста из файла "${uploadedFile.name}"]`;
         }
+        // 2. Если файл большой — сжать
+        if (fileContent.length > CHUNK_SIZE) {
+          setIsThinking(true);
+          let compressed = '';
+          try {
+            let chunks = [];
+            for (let i = 0; i < fileContent.length; i += CHUNK_SIZE) {
+              chunks.push(fileContent.slice(i, i + CHUNK_SIZE));
+            }
+            let compressedChunks: string[] = [];
+            compressedChunks = await processChunksWithLimit(
+              chunks,
+              async (chunk, i) => {
+                setChunkProgress({ stage: 'Сжимаем', current: i + 1, total: chunks.length });
+                return await compressText(chunk, apiKey, language);
+              },
+              2
+            );
+            let result = compressedChunks.join('\n');
+            let stage = 2;
+            while (result.length > 5000 && stage < 10) {
+              const newChunks = [];
+              for (let i = 0; i < result.length; i += CHUNK_SIZE) {
+                newChunks.push(result.slice(i, i + CHUNK_SIZE));
+              }
+              let newCompressed: string[] = [];
+              newCompressed = await processChunksWithLimit(
+                newChunks,
+                async (chunk, i) => {
+                  setChunkProgress({ stage: `Сжимаем (этап ${stage})`, current: i + 1, total: newChunks.length });
+                  return await compressText(chunk, apiKey, language);
+                },
+                2
+              );
+              result = newCompressed.join('\n');
+              stage++;
+            }
+            setChunkProgress({ stage: 'Финальный ответ', current: 1, total: 1 });
+            if (result.length > 5000) {
+              alert('Не удалось сжать текст до нужного размера. Попробуйте другой текст или файл.');
+              setChunkProgress(null);
+              setIsThinking(false);
+              return;
+            }
+            compressed = result;
+          } finally {
+            setIsThinking(false);
+            setChunkProgress(null);
+          }
+          fileContent = compressed;
+        }
+        // 3. Собрать единое сообщение
+        let finalMessage = '';
+        if (message.trim() && fileContent.trim()) {
+          finalMessage = `Пользователь хочет: ${message.trim()}\n\n**Содержимое файла \"${uploadedFile.name}\"**:\n\n\n${fileContent.trim()}\n\n\n`;
+        } else if (fileContent.trim()) {
+          finalMessage = `**Содержимое файла \"${uploadedFile.name}\"**:\n\n\n${fileContent.trim()}\n\n\n`;
+        } else if (message.trim()) {
+          finalMessage = message.trim();
+        } else {
+          finalMessage = '[Ошибка: нет данных для отправки]';
+        }
+        setIsThinking(true);
+        try {
+          await sendMessage(finalMessage, language, apiKey);
+        } finally {
+          setIsThinking(false);
+        }
+        setMessage('');
+        setUploadedFile(null);
+        const textarea = document.querySelector('textarea.' + styles.inputBarInput) as HTMLTextAreaElement | null;
+        if (textarea) textarea.style.height = 'auto';
+        return;
       }
-      
-      // Отправляем сообщение
+      // Если длинный текст (без файла)
+      if (message.trim().length > 5000) {
+        await handleLargeText(message.trim());
+        setMessage('');
+        const textarea = document.querySelector('textarea.' + styles.inputBarInput) as HTMLTextAreaElement | null;
+        if (textarea) textarea.style.height = 'auto';
+        return;
+      }
+      // Обычное сообщение
+      let finalMessage = message.trim();
       setIsThinking(true);
       try {
         await sendMessage(finalMessage, language, apiKey);
       } finally {
         setIsThinking(false);
       }
-      
-      // Очищаем input и файл
       setMessage('');
       setUploadedFile(null);
+      const textarea = document.querySelector('textarea.' + styles.inputBarInput) as HTMLTextAreaElement | null;
+      if (textarea) textarea.style.height = 'auto';
     }
   };
 
@@ -304,23 +379,10 @@ export default function ChatInterface() {
       if (file.type.startsWith('image/') || 
           file.type === 'application/pdf' || 
           file.type.startsWith('text/') || 
-          file.type === 'application/json') {
-        // Считываем текст
-        let fileContent = '';
-        if (file.type.startsWith('image/')) {
-          const { data: { text } } = await Tesseract.recognize(file, 'eng+rus');
-          fileContent = text;
-        } else if (file.type === 'application/pdf') {
-          fileContent = await extractTextFromPDF(file);
-        } else if (file.type.startsWith('text/') || file.type === 'application/json') {
-          fileContent = await file.text();
-        }
-        if (file.name === 'site-content.txt' || fileContent.length > CHUNK_SIZE) {
-          // Если это текст с сайта или просто большой текст — запускаем обработку чанками
-          await handleLargeText(fileContent);
-        } else {
-          setUploadedFile(file);
-        }
+          file.type === 'application/json' ||
+          file.name.endsWith('.docx') || file.name.endsWith('.doc')) {
+        // Просто сохраняем файл, не обрабатываем сразу
+        setUploadedFile(file);
       } else {
         alert('Формат файла не поддерживается.');
       }
@@ -828,6 +890,12 @@ export default function ChatInterface() {
             </div>
           )}
 
+          {isThinking && chunkProgress && (
+            <div style={{textAlign: 'center', color: '#f59e42', fontWeight: 600, margin: '16px 0'}}>
+              {chunkProgress.stage}: {chunkProgress.current} из {chunkProgress.total}
+            </div>
+          )}
+
           <div ref={messagesEndRef} />
         </div>
 
@@ -859,7 +927,7 @@ export default function ChatInterface() {
             onChange={e => setMessage(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder={uploadedFile ? `Введите вопрос о файле "${uploadedFile.name}"...` : (currentChat && models.find(m => m.id === currentChat.modelId)?.name ? `${t('message')} ${models.find(m => m.id === currentChat.modelId)?.name}` : t('messagePlaceholder'))}
-            disabled={isLoading || !currentChatId}
+            disabled={isLoading || isThinking || !currentChatId}
             rows={1}
             style={{ resize: 'none', overflow: 'hidden' }}
             onInput={(e) => {
@@ -872,7 +940,7 @@ export default function ChatInterface() {
           <button
             type="submit"
             className={styles.sendBtn}
-            disabled={(!message.trim() && !uploadedFile) || isLoading || !currentChatId}
+            disabled={(!message.trim() && !uploadedFile) || isLoading || isThinking || !currentChatId}
             title={t('send')}
           >
             <FiSend />
@@ -950,12 +1018,6 @@ export default function ChatInterface() {
           onChange={handleFileInputChange}
           disabled={fileLoading || isLoading || currentChat?.webSearchEnabled}
         />
-
-        {chunkProgress && (
-          <div style={{textAlign: 'center', color: '#f59e42', fontWeight: 600, margin: '16px 0'}}>
-            {chunkProgress.stage}: {chunkProgress.current} из {chunkProgress.total}
-          </div>
-        )}
       </main>
 
       {/* Settings Modal */}
@@ -981,9 +1043,8 @@ export default function ChatInterface() {
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || 'Ошибка извлечения текста');
-            // Создаем виртуальный файл с текстом сайта
-            const file = new File([data.text], `site-content.txt`, { type: 'text/plain' });
-            setUploadedFile(file);
+            // Сразу запускаем обработку большого текста
+            await handleLargeText(data.text);
           } catch (err) {
             alert('Ошибка при извлечении текста с сайта');
           } finally {
