@@ -1,6 +1,5 @@
 .messageRenderer {
   line-height: 1.6;
-  color: #e5e7eb;
   font-size: 1rem;
 
   // Заголовки
@@ -278,6 +277,91 @@
   }
 }
 
+.wrapper[data-chat-theme='dark'] .messageRenderer {
+  color: #e5e7eb;
+}
+
+.wrapper[data-chat-theme='light'] .messageRenderer {
+  color: #18181a;
+}
+
+.wrapper[data-chat-theme='light'] .messageRenderer, .wrapper[data-chat-theme='light'] .messageRenderer * {
+  color: #18181a !important;
+}
+
+.wrapper[data-chat-theme='light'] .messageRenderer {
+  .h1, .h2, .h3, .h4, .h5, .h6, .strong {
+    color: #18181a !important;
+    border-bottom-color: #f59e42;
+  }
+  .paragraph, .li, .ul, .ol {
+    color: #18181a !important;
+  }
+  .link {
+    color: #f59e42;
+    &:hover { border-bottom-color: #f59e42; }
+  }
+  .blockquote {
+    background: #fff7ed;
+    color: #6b4b1c;
+    border-left: 4px solid #f59e42;
+  }
+  .table {
+    background: #fff;
+    border: 1px solid #f3d9b6;
+    color: #18181a;
+  }
+  .thead {
+    background: #ffe7c2;
+    color: #18181a;
+  }
+  .tbody {
+    background: #fff;
+    color: #18181a;
+  }
+  .tr { border-bottom: 1px solid #f3d9b6; }
+  .th {
+    color: #18181a;
+    background: #ffe7c2;
+  }
+  .td {
+    color: #18181a;
+    border-right: 1px solid #f3d9b6;
+  }
+  .hr {
+    background: linear-gradient(to right, transparent, #f59e42, transparent);
+  }
+  .inlineCode {
+    background: #ffe7c2;
+    color: #b85c00;
+    border: 1px solid #f3d9b6;
+  }
+  .codeBlock {
+    background: #f7f8fa;
+    border: 1px solid #f3d9b6;
+    color: #18181a;
+  }
+  .codeHeader {
+    background: #ffe7c2;
+    border-bottom: 1px solid #f3d9b6;
+    color: #b85c00;
+  }
+  .languageLabel {
+    color: #b85c00;
+  }
+  pre {
+    background: #f7f8fa;
+    color: #18181a;
+  }
+  code {
+    color: #b85c00;
+  }
+}
+
+.wrapper[data-chat-theme='light'] .MessageRenderer_messageRenderer__hCma8 {
+  color: #18181a !important;
+}
+
 // Адаптивность
 @media (max-width: 768px) {
   .message {
@@ -371,4 +455,15 @@
     padding: 6px 10px;
     font-size: 0.85rem;
   }
+} 
+
+.aiReasoningBlock {
+  background: #23232a !important;
+  color: #fff !important;
+  border-radius: 14px;
+  margin-bottom: 60px;
+}
+
+.messagesContainer {
+  padding-bottom: 80px;
 } 

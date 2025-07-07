@@ -734,7 +734,13 @@ export default function ChatInterface() {
                   <div className={styles.messageContent}>
                     {/* Если это AI-сообщение с reasoning/answer — кастомный рендер */}
                     {msg.role === 'assistant' && msg.reasoning ? (
-                      <div className={styles.aiReasoningBlock}>
+                      <div
+                        className={styles.aiReasoningBlock}
+                        style={{
+                          background: chatThemeLight ? '#fff' : '#18181a',
+                          color: chatThemeLight ? '#23232a' : '#fff'
+                        }}
+                      >
                         <div className={styles.reasoningHeader}>
                           <span className={styles.reasoningTitle}>
                             <FiZap className={styles.reasoningIcon} />
@@ -746,8 +752,21 @@ export default function ChatInterface() {
                         </div>
                         {/* Reasoning (мышление) — только если не свернуто */}
                         {!collapsedReasoning[msg.id] && msg.reasoning && (
-                          <div className={styles.reasoningText}>
-                            <MessageRenderer content={msg.reasoning} />
+                          <div
+                            className={styles.reasoningText}
+                            style={{
+                              background: chatThemeLight ? '#fff' : '#18191f',
+                              color: chatThemeLight ? '#23232a' : '#ffb74d',
+                              borderRadius: 8,
+                              padding: '7px 10px',
+                              marginBottom: 6,
+                              fontFamily: `'JetBrains Mono', 'Fira Mono', 'Consolas', monospace`,
+                              fontSize: '0.97em',
+                              whiteSpace: 'pre-line',
+                              animation: 'fadeIn 0.5s'
+                            }}
+                          >
+                            <MessageRenderer content={msg.reasoning} themeLight={chatThemeLight} />
                           </div>
                         )}
                         {/* Кнопки снизу reasoning */}
@@ -761,7 +780,7 @@ export default function ChatInterface() {
                             <div className={styles.answerHeader}>
                               <span className={styles.answerTitle}>{t('finalAnswer')}</span>
                             </div>
-                            <MessageRenderer content={msg.answer} />
+                            <MessageRenderer content={msg.answer} themeLight={chatThemeLight} />
                             {/* Кнопки снизу финального ответа */}
                             <div style={{display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8}}>
                               <button className={styles.copyBtn} onClick={() => navigator.clipboard.writeText(msg.answer || '')} title="Скопировать ответ"><FiCopy /></button>
@@ -822,7 +841,7 @@ export default function ChatInterface() {
                     ) : (
                       <>
                         <div className={styles.messageText}>
-                          <MessageRenderer content={msg.role === 'assistant' && msg.answer ? msg.answer : msg.content} />
+                          <MessageRenderer content={msg.role === 'assistant' && msg.answer ? msg.answer : msg.content} themeLight={chatThemeLight} />
                         </div>
                         {/* Кнопки ссылок для обычных сообщений AI */}
                         {msg.role === 'assistant' && Array.isArray(msg.searchSources) && msg.searchSources.length > 0 && (

@@ -9,9 +9,10 @@ import styles from './MessageRenderer.module.scss';
 interface MessageRendererProps {
   content: string;
   className?: string;
+  themeLight?: boolean;
 }
 
-export default function MessageRenderer({ content, className }: MessageRendererProps) {
+export default function MessageRenderer({ content, className, themeLight }: MessageRendererProps) {
   useEffect(() => {
     // Принудительно пересчитываем подсветку синтаксиса после рендера
     if (typeof window !== 'undefined') {
@@ -20,8 +21,10 @@ export default function MessageRenderer({ content, className }: MessageRendererP
     }
   }, [content]);
 
+  const color = themeLight ? '#18181a' : '#e5e7eb';
+
   return (
-    <div className={`${styles.messageRenderer} ${className || ''}`}>
+    <div className={`${styles.messageRenderer} ${className || ''}`} style={{ color }}>
       <ReactMarkdown
         components={{
           // Кастомный рендер для блоков кода
