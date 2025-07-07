@@ -95,10 +95,23 @@ const MODEL_MAP: { [key: string]: string } = {
 const PROMPTS = {
   ru: {
     system: "Ты дружелюбный и полезный AI помощник. Отвечай на русском языке, будь вежливым и старайся давать полезные ответы. Если в ответе есть код, обязательно используй Markdown форматирование с указанием языка программирования. Например: ```javascript для JavaScript, ```python для Python, ```html для HTML и т.д. Всегда форматируй заголовки с помощью #, жирный текст с **, курсив с *, списки с - или 1., и код с ` для встроенного кода.",
-    reasoning: "Ты эксперт по анализу задач. Разбей задачу пользователя на логические шаги и объясни свой ход мыслей. Отвечай на русском языке. Если в анализе есть код, используй Markdown форматирование.",
+    reasoning: `Ты эксперт по анализу и решению задач. 
+Твоя задача — внимательно проанализировать запрос пользователя, разбить его на последовательные логические шаги и подробно объяснить ход своих рассуждений.
+Для каждого шага укажи, почему он необходим и как он помогает приблизиться к решению.
+Если задача подразумевает алгоритм, инструкцию или код — опиши логику их построения, но не давай финального ответа.
+Используй структурированный формат: нумерованные или маркированные списки, подзаголовки, выделяй ключевые моменты.
+Если в анализе встречается код, обязательно оформляй его в Markdown с указанием языка программирования.
+Отвечай на русском языке, избегай лишних обобщений и старайся быть максимально понятным и полезным.`,
     reasoningWithAnalysis: "Ты дружелюбный и полезный AI помощник. Отвечай на русском языке, будь вежливым и старайся давать полезные ответы. Используй результаты своего анализа для формирования ответа. Если в ответе есть код, обязательно используй Markdown форматирование с указанием языка программирования.",
     analyzeTask: "Проанализируй эту задачу и объясни, как ты будешь её решать:",
-    finalAnswer: "Анализ задачи:\n{reasoning}\n\nТеперь дай финальный ответ на основе этого анализа."
+    finalAnswer: `Анализ задачи:
+{reasoning}
+
+Теперь, используя этот анализ:
+- Если задача — обычное приветствие или бытовой вопрос, просто ответь естественно и кратко, как человек (например: "Всё хорошо, спасибо!").
+- Если задача требует инструкции, рецепта или алгоритма — дай пошаговую текстовую инструкцию без кода, если только пользователь явно не просит пример кода.
+- Включай код только если пользователь прямо просит: "напиши код", "пример на Python" и т.п.
+- Не давай вариантов, не используй списки и код, если это не требуется по смыслу задачи.`
   },
   en: {
     system: "You are a friendly and helpful AI assistant. Respond in English, be polite and try to give useful answers. If your response contains code, always use Markdown formatting with the programming language specified. For example: ```javascript for JavaScript, ```python for Python, ```html for HTML, etc. Always format headings with #, bold text with **, italic text with *, lists with - or 1., and inline code with `.",
@@ -108,6 +121,17 @@ const PROMPTS = {
     finalAnswer: "Task analysis:\n{reasoning}\n\nNow give a final answer based on this analysis."
   }
 };
+
+// Функция для определения простых бытовых вопросов (приветствия и small talk)
+function isSimpleGreeting(msg: string) {
+  return /\b(привет|как дела|здравствуй|добрый день|доброе утро|добрый вечер|hello|hi|how are you|hey|sup|yo)\b/i.test(msg);
+}
+
+// Функция для определения бытовых вопросов с приветствием и действием
+function isGreetingWithAction(msg: string) {
+  return /\b(привет|здравствуй|добрый день|доброе утро|добрый вечер|hello|hi)\b/i.test(msg) &&
+         /как (приготовить|сделать|собрать|написать|решить|получить|выучить|создать|построить|запустить|начать|попасть|достичь|узнать|найти|попробовать|использовать|проверить|поменять|заменить|открыть|закрыть|поменять|обновить|удалить|добавить|сохранить|отправить|загрузить|скачать|установить|подключить|разобрать|собрать|поменять|передать|показать|объяснить|рассказать|описать|помочь|помоги|подскажи)/i.test(msg);
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -226,6 +250,80 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    if (isSimpleGreeting(message)) {
+      // Для простых бытовых вопросов используем короткий промпт
+      const messages: { role: "system" | "user"; content: string }[] = [
+        {
+          role: "system",
+          content: "Ответь только одной короткой фразой, как обычный человек в чате. Запрещено давать варианты, анализ, пояснения, код, списки, подзаголовки, благодарности, вступления, рассуждения. Только одна короткая фраза-ответ."
+        },
+        {
+          role: "user",
+          content: message
+        }
+      ];
+      let aiResponse: any;
+      if (modelId === 'neironka') {
+        const content = await askLMStudio(messages, 0.7, 100);
+        aiResponse = { content, role: 'assistant' };
+      } else {
+        const openai = getOpenAI(apiKey);
+        const completion = await openai.chat.completions.create({
+          model: selectedModel,
+          messages,
+          max_tokens: 100,
+          temperature: 0.7,
+        });
+        aiResponse = completion.choices[0].message;
+      }
+      // Пост-обработка: обрезаем до первой строки или 120 символов
+      function postprocessShortAnswer(answer: string) {
+        const firstLine = answer.split(/[.!?\n]/)[0];
+        return firstLine.length > 5 ? firstLine.trim() : answer.slice(0, 120).trim();
+      }
+      const shortAnswer = postprocessShortAnswer(aiResponse.content);
+      return NextResponse.json({
+        reasoning: null,
+        answer: shortAnswer,
+        role: aiResponse.role,
+        searchSources
+      });
+    }
+
+    if (isGreetingWithAction(message)) {
+      // Для бытовых вопросов с приветствием и действием используем дружелюбный промпт с краткой инструкцией
+      const messages: { role: "system" | "user"; content: string }[] = [
+        {
+          role: "system",
+          content: "Ты дружелюбный человек. Ответь с приветствием и кратко объясни, как выполнить действие, о котором спрашивает пользователь, в 1-2 предложениях. Не давай длинных инструкций или рецептов, если пользователь не просит подробно. Если пользователь попросит подробнее — тогда дай полный пошаговый ответ."
+        },
+        {
+          role: "user",
+          content: message
+        }
+      ];
+      let aiResponse: any;
+      if (modelId === 'neironka') {
+        const content = await askLMStudio(messages, 0.7, 120);
+        aiResponse = { content, role: 'assistant' };
+      } else {
+        const openai = getOpenAI(apiKey);
+        const completion = await openai.chat.completions.create({
+          model: selectedModel,
+          messages,
+          max_tokens: 120,
+          temperature: 0.7,
+        });
+        aiResponse = completion.choices[0].message;
+      }
+      return NextResponse.json({
+        reasoning: null,
+        answer: aiResponse.content,
+        role: aiResponse.role,
+        searchSources
+      });
+    }
+
     if (reasoningEnabled) {
       // Если включено reasoning, сначала получаем reasoning
       let contextBlock = '';
@@ -280,7 +378,7 @@ export async function POST(request: NextRequest) {
         ...conversationHistory,
         {
           role: "user",
-          content: shortReasoning + (answerContextBlock ? '\n' + answerContextBlock : '')
+          content: prompts.finalAnswer.replace('{reasoning}', shortReasoning) + (answerContextBlock ? '\n' + answerContextBlock : '')
         }
       ];
 
