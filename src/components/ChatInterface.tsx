@@ -9,7 +9,7 @@ import UploadDropdown from './UploadDropdown';
 import SettingsModal from './SettingsModal';
 import ShareModal from './ShareModal';
 import styles from './ChatInterface.module.scss';
-import { FiPlus, FiTrash2, FiLogOut, FiMessageSquare, FiUser, FiSend, FiUpload, FiSettings, FiX, FiZap, FiSearch, FiChevronDown, FiChevronUp, FiChevronLeft, FiChevronRight, FiShare2, FiMenu } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiLogOut, FiMessageSquare, FiUser, FiSend, FiUpload, FiSettings, FiX, FiZap, FiSearch, FiChevronDown, FiChevronUp, FiChevronLeft, FiChevronRight, FiShare2, FiMenu, FiCopy, FiRefreshCw } from 'react-icons/fi';
 import { FaRobot } from 'react-icons/fa';
 import Tesseract from 'tesseract.js';
 import { supabase } from '@/lib/supabaseClient';
@@ -495,9 +495,35 @@ export default function ChatInterface() {
     setLanguage(newLanguage);
   };
 
+  const handleRegenerate = async (msg: Message) => {
+    if (isLoading || isThinking || !currentChat) return;
+    // Найти последнее сообщение пользователя перед этим AI-ответом
+    const idx = currentChat.messages.findIndex(m => m.id === msg.id);
+    if (idx === -1) return;
+    // Ищем назад первое сообщение пользователя
+    let userMsg = null;
+    for (let i = idx - 1; i >= 0; i--) {
+      if (currentChat.messages[i].role === 'user') {
+        userMsg = currentChat.messages[i];
+        break;
+      }
+    }
+    if (!userMsg || !userMsg.content) return;
+    setIsThinking(true);
+    try {
+      await sendMessage(userMsg.content, language, apiKey);
+    } finally {
+      setIsThinking(false);
+    }
+  };
+
   if (!isHydrated) {
     return null; // или можно показать лоадер
   }
+
+  // Перед currentChat.messages.map(...)
+  const lastAssistantIdx = currentChat?.messages ? [...currentChat.messages].reverse().findIndex(m => m.role === 'assistant' && !m.reasoning) : -1;
+  const lastAssistantId = lastAssistantIdx !== -1 && currentChat?.messages ? currentChat.messages[currentChat.messages.length - 1 - lastAssistantIdx].id : null;
 
   return (
     <div className={styles.wrapper}>
@@ -659,15 +685,7 @@ export default function ChatInterface() {
 
       {/* Main Chat Area */}
       <main className={styles.chatContainer}>
-        <div className={styles.header}>
-          <div className={styles.userInfo}>
-            <div className={styles.avatar}><Image src={Ai} alt="AI" width={32} height={32} style={{ borderRadius: '50%' }} /></div>
-            <div className={styles.userDetails}>
-              <h3>{user?.name || t('user')}</h3>
-              <span className={styles.status}>{t('online')}</span>
-            </div>
-          </div>
-        </div>
+        {/* <div className={styles.header}> ... </div> */}
 
         <div className={styles.messagesContainer}>
           {!currentChat || currentChat.messages.length === 0 ? (
@@ -693,11 +711,7 @@ export default function ChatInterface() {
                           <FiZap className={styles.reasoningIcon} />
                           {collapsedReasoning[msg.id] ? t('reasoningCollapsed') : t('reasoning')}
                         </span>
-                        <button
-                          className={styles.collapseBtn}
-                          onClick={() => setCollapsedReasoning(prev => ({ ...prev, [msg.id]: !prev[msg.id] }))}
-                          title={collapsedReasoning[msg.id] ? t('expandReasoning') : t('collapseReasoning')}
-                        >
+                        <button className={styles.collapseBtn} onClick={() => setCollapsedReasoning(prev => ({ ...prev, [msg.id]: !prev[msg.id] }))} title={collapsedReasoning[msg.id] ? t('expandReasoning') : t('collapseReasoning')}>
                           {collapsedReasoning[msg.id] ? <FiPlus /> : <FiX />}
                         </button>
                       </div>
@@ -707,6 +721,11 @@ export default function ChatInterface() {
                           <MessageRenderer content={msg.reasoning} />
                         </div>
                       )}
+                      {/* Кнопки снизу reasoning */}
+                      <div style={{display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8}}>
+                        <button className={styles.copyBtn} onClick={() => navigator.clipboard.writeText(msg.reasoning || '')} title="Скопировать reasoning"><FiCopy /></button>
+                        <button className={styles.regenBtn} onClick={() => handleRegenerate(msg)} title="Перегенерировать reasoning"><FiRefreshCw /></button>
+                      </div>
                       {/* Финальный ответ — всегда показывать, даже если reasoning свернут */}
                       {msg.answer ? (
                         <div className={styles.answerText}>
@@ -714,6 +733,11 @@ export default function ChatInterface() {
                             <span className={styles.answerTitle}>{t('finalAnswer')}</span>
                           </div>
                           <MessageRenderer content={msg.answer} />
+                          {/* Кнопки снизу финального ответа */}
+                          <div style={{display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8}}>
+                            <button className={styles.copyBtn} onClick={() => navigator.clipboard.writeText(msg.answer || '')} title="Скопировать ответ"><FiCopy /></button>
+                            <button className={styles.regenBtn} onClick={() => handleRegenerate(msg)} title="Перегенерировать ответ"><FiRefreshCw /></button>
+                          </div>
                           {/* Кнопки ссылок, если есть searchSources */}
                           {Array.isArray(msg.searchSources) && msg.searchSources.length > 0 && (
                             <div style={{marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center'}}>
@@ -738,17 +762,14 @@ export default function ChatInterface() {
                                       borderRadius: 6,
                                       padding: '3px 10px 3px 6px',
                                       fontWeight: 500,
-                                      fontSize: '0.97em',
+                                      fontSize: 14,
                                       textDecoration: 'none',
-                                      transition: 'background 0.2s, color 0.2s',
-                                      cursor: 'pointer',
-                                      minWidth: 0,
-                                      maxWidth: 120,
-                                      gap: 5,
+                                      gap: 4,
+                                      marginRight: 4
                                     }}
                                   >
                                     {processedSource.favicon && (
-                                      <Image src={Ai} alt="" width={16} height={16} style={{marginRight: 4, borderRadius: 3}} />
+                                      <img src={processedSource.favicon} alt="" width={16} height={16} style={{marginRight: 4, borderRadius: 3}} />
                                     )}
                                     {processedSource.title}
                                   </a>
@@ -813,7 +834,7 @@ export default function ChatInterface() {
                                 }}
                               >
                                 {processedSource.favicon && (
-                                  <Image src={Ai} alt="" width={16} height={16} style={{marginRight: 4, borderRadius: 3}} />
+                                  <img src={processedSource.favicon} alt="" width={16} height={16} style={{marginRight: 4, borderRadius: 3}} />
                                 )}
                                 {processedSource.title}
                               </a>
@@ -841,6 +862,34 @@ export default function ChatInterface() {
                               </span>
                             );
                           })}
+                        </div>
+                      )}
+                      {msg.role === 'assistant' && !msg.reasoning && msg.id === lastAssistantId && (
+                        <div style={{display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 2}}>
+                          <button className={styles.copyBtn} onClick={() => navigator.clipboard.writeText(msg.answer || msg.content || '')} title="Скопировать ответ"><FiCopy /></button>
+                          <button className={styles.regenBtn} onClick={async () => {
+                            if (isLoading || isThinking || !currentChat) return;
+                            // Найти последнее сообщение пользователя перед этим AI-ответом
+                            const idx = currentChat.messages.findIndex(m => m.id === msg.id);
+                            if (idx === -1) return;
+                            let userMsg = null;
+                            for (let i = idx - 1; i >= 0; i--) {
+                              if (currentChat.messages[i].role === 'user') {
+                                userMsg = currentChat.messages[i];
+                                break;
+                              }
+                            }
+                            if (!userMsg || !userMsg.content) return;
+                            // Удалить это AI-сообщение
+                            const chatId = currentChat.id;
+                            useChatStore.getState().deleteMessage(chatId, msg.id);
+                            setIsThinking(true);
+                            try {
+                              await sendMessage(userMsg.content, language, apiKey);
+                            } finally {
+                              setIsThinking(false);
+                            }
+                          }} title="Перегенерировать ответ"><FiRefreshCw /></button>
                         </div>
                       )}
                       <div className={styles.messageTime}>{formatTime(msg.timestamp)}</div>

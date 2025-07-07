@@ -38,6 +38,7 @@ interface ChatState {
   toggleReasoning: (chatId: string) => void;
   toggleWebSearch: (chatId: string) => void;
   changeModel: (chatId: string, modelId: string) => void;
+  deleteMessage: (chatId: string, messageId: string) => void;
 }
 
 export const useChatStore = create<ChatState>()(
@@ -190,6 +191,16 @@ export const useChatStore = create<ChatState>()(
         set((state) => ({
           chats: state.chats.map((chat) =>
             chat.id === chatId ? { ...chat, modelId } : chat
+          ),
+        }));
+      },
+
+      deleteMessage: (chatId: string, messageId: string) => {
+        set((state) => ({
+          chats: state.chats.map((chat) =>
+            chat.id === chatId
+              ? { ...chat, messages: chat.messages.filter((msg) => msg.id !== messageId) }
+              : chat
           ),
         }));
       },
