@@ -78,12 +78,39 @@ export const useChatStore = create<ChatState>()(
       },
 
       sendMessage: async (message: string, language: string = 'ru', apiKey?: string) => {
-        const state = get();
-        const currentChat = state.chats.find((chat) => chat.id === state.currentChatId);
+        let state = get();
+        let currentChat = state.chats.find((chat) => chat.id === state.currentChatId);
 
+        // Если чата нет — создать автоматически
         if (!currentChat) {
-          set({ error: 'Чат не найден' });
-          return;
+          // Создаём новый чат с дефолтной моделью
+          const modelId = state.chats[0]?.modelId || 'neironka';
+          const title = 'Новый чат';
+          const newChat = {
+            id: Date.now().toString(),
+            title,
+            messages: [],
+            modelId,
+            reasoningEnabled: false,
+            webSearchEnabled: false,
+            createdAt: new Date(),
+          };
+          set((prev) => ({
+            chats: [newChat, ...prev.chats],
+            currentChatId: newChat.id,
+          }));
+          // Ждём появления currentChatId
+          let waitCount = 0;
+          while (!get().currentChatId && waitCount < 20) {
+            await new Promise(res => setTimeout(res, 50));
+            waitCount++;
+          }
+          state = get();
+          currentChat = state.chats.find((chat) => chat.id === state.currentChatId);
+          if (!currentChat) {
+            set({ error: 'Не удалось создать чат' });
+            return;
+          }
         }
 
         if (!message.trim()) {

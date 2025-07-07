@@ -50,6 +50,12 @@ async function processChunksWithLimit<T, R>(chunks: T[], handler: (chunk: T, i: 
   return results;
 }
 
+// Добавить хелпер для определения мобильного устройства
+const isMobile = typeof window !== 'undefined' && window.innerWidth <= 767;
+
+// Добавить хелпер для очень маленьких экранов
+const isVerySmall = typeof window !== 'undefined' && window.innerWidth <= 420;
+
 export default function ChatInterface() {
   const [message, setMessage] = useState('');
   const [newChatTitle, setNewChatTitle] = useState('');
@@ -228,114 +234,106 @@ export default function ChatInterface() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if ((message.trim() || uploadedFile) && !isLoading && currentChatId) {
-      // Если есть файл
-      if (uploadedFile) {
-        // 1. Считать содержимое файла
-        let fileContent = '';
-        try {
-          if (uploadedFile.type.startsWith('image/')) {
-            const { data: { text } } = await Tesseract.recognize(uploadedFile, 'eng+rus');
-            fileContent = text;
-          } else if (uploadedFile.type === 'application/pdf') {
-            fileContent = await extractTextFromPDF(uploadedFile);
-          } else if (uploadedFile.type.startsWith('text/') || uploadedFile.type === 'application/json') {
-            fileContent = await uploadedFile.text();
-          } else if (uploadedFile.name.endsWith('.docx')) {
-            const arrayBuffer = await uploadedFile.arrayBuffer();
-            const { value } = await mammoth.extractRawText({ arrayBuffer });
-            fileContent = value;
-          } else if (uploadedFile.name.endsWith('.doc')) {
-            alert('Формат .doc поддерживается ограниченно. Попробуйте сначала сохранить файл как .docx.');
-            fileContent = '';
-          }
-        } catch (err) {
-          fileContent = `[Ошибка извлечения текста из файла "${uploadedFile.name}"]`;
+    if (!(message.trim() || uploadedFile) || isLoading) return;
+    // Если нет активного чата — создать его автоматически
+    if (!currentChatId) {
+      createChat('Новый чат', models[0]?.id || 'neironka');
+      // Ждём, пока currentChatId появится (асинхронно)
+      let waitCount = 0;
+      while (!useChatStore.getState().currentChatId && waitCount < 20) {
+        await new Promise(res => setTimeout(res, 50));
+        waitCount++;
+      }
+    }
+    const chatId = useChatStore.getState().currentChatId;
+    if (!chatId) {
+      alert('Не удалось создать чат. Попробуйте ещё раз.');
+      return;
+    }
+    if (uploadedFile) {
+      // 1. Считать содержимое файла
+      let fileContent = '';
+      try {
+        if (uploadedFile.type.startsWith('image/')) {
+          const { data: { text } } = await Tesseract.recognize(uploadedFile, 'eng+rus');
+          fileContent = text;
+        } else if (uploadedFile.type === 'application/pdf') {
+          fileContent = await extractTextFromPDF(uploadedFile);
+        } else if (uploadedFile.type.startsWith('text/') || uploadedFile.type === 'application/json') {
+          fileContent = await uploadedFile.text();
+        } else if (uploadedFile.name.endsWith('.docx')) {
+          const arrayBuffer = await uploadedFile.arrayBuffer();
+          const { value } = await mammoth.extractRawText({ arrayBuffer });
+          fileContent = value;
+        } else if (uploadedFile.name.endsWith('.doc')) {
+          alert('Формат .doc поддерживается ограниченно. Попробуйте сначала сохранить файл как .docx.');
+          fileContent = '';
         }
-        // 2. Если файл большой — сжать
-        if (fileContent.length > CHUNK_SIZE) {
-          setIsThinking(true);
-          let compressed = '';
-          try {
-            let chunks = [];
-            for (let i = 0; i < fileContent.length; i += CHUNK_SIZE) {
-              chunks.push(fileContent.slice(i, i + CHUNK_SIZE));
+      } catch (err) {
+        fileContent = `[Ошибка извлечения текста из файла "${uploadedFile.name}"]`;
+      }
+      // 2. Если файл большой — сжать
+      if (fileContent.length > CHUNK_SIZE) {
+        setIsThinking(true);
+        let compressed = '';
+        try {
+          let chunks = [];
+          for (let i = 0; i < fileContent.length; i += CHUNK_SIZE) {
+            chunks.push(fileContent.slice(i, i + CHUNK_SIZE));
+          }
+          let compressedChunks: string[] = [];
+          compressedChunks = await processChunksWithLimit(
+            chunks,
+            async (chunk, i) => {
+              setChunkProgress({ stage: 'Сжимаем', current: i + 1, total: chunks.length });
+              return await compressText(chunk, apiKey, language);
+            },
+            2
+          );
+          let result = compressedChunks.join('\n');
+          let stage = 2;
+          while (result.length > 5000 && stage < 10) {
+            const newChunks = [];
+            for (let i = 0; i < result.length; i += CHUNK_SIZE) {
+              newChunks.push(result.slice(i, i + CHUNK_SIZE));
             }
-            let compressedChunks: string[] = [];
-            compressedChunks = await processChunksWithLimit(
-              chunks,
+            let newCompressed: string[] = [];
+            newCompressed = await processChunksWithLimit(
+              newChunks,
               async (chunk, i) => {
-                setChunkProgress({ stage: 'Сжимаем', current: i + 1, total: chunks.length });
+                setChunkProgress({ stage: `Сжимаем (этап ${stage})`, current: i + 1, total: newChunks.length });
                 return await compressText(chunk, apiKey, language);
               },
               2
             );
-            let result = compressedChunks.join('\n');
-            let stage = 2;
-            while (result.length > 5000 && stage < 10) {
-              const newChunks = [];
-              for (let i = 0; i < result.length; i += CHUNK_SIZE) {
-                newChunks.push(result.slice(i, i + CHUNK_SIZE));
-              }
-              let newCompressed: string[] = [];
-              newCompressed = await processChunksWithLimit(
-                newChunks,
-                async (chunk, i) => {
-                  setChunkProgress({ stage: `Сжимаем (этап ${stage})`, current: i + 1, total: newChunks.length });
-                  return await compressText(chunk, apiKey, language);
-                },
-                2
-              );
-              result = newCompressed.join('\n');
-              stage++;
-            }
-            setChunkProgress({ stage: 'Финальный ответ', current: 1, total: 1 });
-            if (result.length > 5000) {
-              alert('Не удалось сжать текст до нужного размера. Попробуйте другой текст или файл.');
-              setChunkProgress(null);
-              setIsThinking(false);
-              return;
-            }
-            compressed = result;
-          } finally {
-            setIsThinking(false);
-            setChunkProgress(null);
+            result = newCompressed.join('\n');
+            stage++;
           }
-          fileContent = compressed;
-        }
-        // 3. Собрать единое сообщение
-        let finalMessage = '';
-        if (message.trim() && fileContent.trim()) {
-          finalMessage = `Пользователь хочет: ${message.trim()}\n\n**Содержимое файла \"${uploadedFile.name}\"**:\n\n\n${fileContent.trim()}\n\n\n`;
-        } else if (fileContent.trim()) {
-          finalMessage = `**Содержимое файла \"${uploadedFile.name}\"**:\n\n\n${fileContent.trim()}\n\n\n`;
-        } else if (message.trim()) {
-          finalMessage = message.trim();
-        } else {
-          finalMessage = '[Ошибка: нет данных для отправки]';
-        }
-        setIsThinking(true);
-        try {
-          await sendMessage(finalMessage, language, apiKey);
+          setChunkProgress({ stage: 'Финальный ответ', current: 1, total: 1 });
+          if (result.length > 5000) {
+            alert('Не удалось сжать текст до нужного размера. Попробуйте другой текст или файл.');
+            setChunkProgress(null);
+            setIsThinking(false);
+            return;
+          }
+          compressed = result;
         } finally {
           setIsThinking(false);
+          setChunkProgress(null);
         }
-        setMessage('');
-        setUploadedFile(null);
-        const textarea = document.querySelector('textarea.' + styles.inputBarInput) as HTMLTextAreaElement | null;
-        if (textarea) textarea.style.height = 'auto';
-        return;
+        fileContent = compressed;
       }
-      // Если длинный текст (без файла)
-      if (message.trim().length > 5000) {
-        await handleLargeText(message.trim());
-        setMessage('');
-        const textarea = document.querySelector('textarea.' + styles.inputBarInput) as HTMLTextAreaElement | null;
-        if (textarea) textarea.style.height = 'auto';
-        return;
+      // 3. Собрать единое сообщение
+      let finalMessage = '';
+      if (message.trim() && fileContent.trim()) {
+        finalMessage = `Пользователь хочет: ${message.trim()}\n\n**Содержимое файла \"${uploadedFile.name}\"**:\n\n\n${fileContent.trim()}\n\n\n`;
+      } else if (fileContent.trim()) {
+        finalMessage = `**Содержимое файла \"${uploadedFile.name}\"**:\n\n\n${fileContent.trim()}\n\n\n`;
+      } else if (message.trim()) {
+        finalMessage = message.trim();
+      } else {
+        finalMessage = '[Ошибка: нет данных для отправки]';
       }
-      // Обычное сообщение
-      let finalMessage = message.trim();
       setIsThinking(true);
       try {
         await sendMessage(finalMessage, language, apiKey);
@@ -346,7 +344,28 @@ export default function ChatInterface() {
       setUploadedFile(null);
       const textarea = document.querySelector('textarea.' + styles.inputBarInput) as HTMLTextAreaElement | null;
       if (textarea) textarea.style.height = 'auto';
+      return;
     }
+    // Если длинный текст (без файла)
+    if (message.trim().length > 5000) {
+      await handleLargeText(message.trim());
+      setMessage('');
+      const textarea = document.querySelector('textarea.' + styles.inputBarInput) as HTMLTextAreaElement | null;
+      if (textarea) textarea.style.height = 'auto';
+      return;
+    }
+    // Обычное сообщение
+    let finalMessage = message.trim();
+    setIsThinking(true);
+    try {
+      await sendMessage(finalMessage, language, apiKey);
+    } finally {
+      setIsThinking(false);
+    }
+    setMessage('');
+    setUploadedFile(null);
+    const textarea = document.querySelector('textarea.' + styles.inputBarInput) as HTMLTextAreaElement | null;
+    if (textarea) textarea.style.height = 'auto';
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -1007,7 +1026,10 @@ export default function ChatInterface() {
               disabled={!currentChat}
               title={t('deepThinkTooltip')}
             >
-              <FiZap /> {t('deepThink')}
+              <div style={{display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: isMobile ? 'center' : 'flex-start', gap: 4, width: isMobile ? '100%' : undefined}}>
+                <FiZap />
+                {isMobile ? <span style={{fontSize: '0.9em', marginLeft: 4}}>DeepThink</span> : t('deepThink')}
+              </div>
             </button>
             {/* Веб-поиск */}
             <button
@@ -1017,21 +1039,26 @@ export default function ChatInterface() {
               disabled={!currentChat}
               title="Включить поиск в интернете"
             >
-              <FiSearch /> Веб-поиск
+              <div style={{display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: isMobile ? 'center' : 'flex-start', gap: 4, width: isMobile ? '100%' : undefined}}>
+                <FiSearch />
+                {isMobile && !isVerySmall ? <span style={{fontSize: '0.9em', marginLeft: 4}}>Веб-поиск</span> : (!isMobile && 'Веб-поиск')}
+              </div>
             </button>
             {/* Выбор модели */}
             <div className={styles.modelSelector}>
-              <Image src={Ai} alt="AI" width={32} height={32} style={{ borderRadius: '50%' }} />
-              <select
-                className={styles.modelSelect}
-                value={currentChat?.modelId || ''}
-                onChange={e => handleModelChange(e.target.value)}
-                disabled={!currentChat}
-              >
-                {models.map((model) => (
-                  <option key={model.id} value={model.id}>{model.name}</option>
-                ))}
-              </select>
+              <Image src={Ai} alt="AI" width={24} height={24} style={{ borderRadius: '50%' }} />
+              {!isMobile && (
+                <select
+                  className={styles.modelSelect}
+                  value={currentChat?.modelId || ''}
+                  onChange={e => handleModelChange(e.target.value)}
+                  disabled={!currentChat}
+                >
+                  {models.map((model) => (
+                    <option key={model.id} value={model.id}>{model.name}</option>
+                  ))}
+                </select>
+              )}
             </div>
             {/* Upload */}
             <button
