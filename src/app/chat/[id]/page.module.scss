@@ -1,0 +1,217 @@
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background: #18181a;
+  color: #fff;
+  gap: 20px;
+}
+
+.loadingSpinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #29292f;
+  border-top: 3px solid #f59e42;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.errorContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background: #18181a;
+  color: #fff;
+  text-align: center;
+  gap: 20px;
+  padding: 20px;
+}
+
+.errorIcon {
+  font-size: 4rem;
+  color: #f59e42;
+  margin-bottom: 16px;
+}
+
+.errorContainer h2 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin: 0;
+  color: #fff;
+}
+
+.errorContainer p {
+  font-size: 1.1rem;
+  color: #888;
+  margin: 0;
+  max-width: 400px;
+  line-height: 1.5;
+}
+
+.guestContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: #18181a;
+  color: #fff;
+  padding: 20px;
+}
+
+.guestContent {
+  text-align: center;
+  max-width: 500px;
+  background: #23232a;
+  border-radius: 18px;
+  padding: 48px 32px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.guestIcon {
+  font-size: 4rem;
+  color: #f59e42;
+  margin-bottom: 24px;
+}
+
+.guestContent h2 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin: 0 0 16px 0;
+  color: #fff;
+}
+
+.guestContent p {
+  font-size: 1.1rem;
+  color: #888;
+  margin: 0 0 32px 0;
+  line-height: 1.5;
+}
+
+.guestActions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.loginButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 24px;
+  background: #f59e42;
+  color: #fff;
+  text-decoration: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: background 0.2s;
+  
+  &:hover {
+    background: #e88a2e;
+  }
+}
+
+.backButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: transparent;
+  color: #888;
+  text-decoration: none;
+  border: 1.5px solid #29292f;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  
+  &:hover {
+    background: #29292f;
+    color: #fff;
+    border-color: #3a3a42;
+  }
+}
+
+// Адаптивность
+@media (max-width: 768px) {
+  .guestContent {
+    padding: 32px 24px;
+    margin: 20px;
+  }
+  
+  .guestContent h2 {
+    font-size: 1.5rem;
+  }
+  
+  .guestContent p {
+    font-size: 1rem;
+  }
+  
+  .guestActions {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 480px) {
+  .loadingContainer, .errorContainer {
+    padding: 16px;
+  }
+  
+  .loadingSpinner {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .errorIcon {
+    font-size: 3rem;
+  }
+  
+  .errorContainer h2 {
+    font-size: 1.5rem;
+  }
+  
+  .errorContainer p {
+    font-size: 1rem;
+  }
+  
+  .guestContainer {
+    padding: 16px;
+  }
+  
+  .guestContent {
+    padding: 24px 20px;
+    margin: 16px;
+  }
+  
+  .guestIcon {
+    font-size: 3rem;
+  }
+  
+  .guestContent h2 {
+    font-size: 1.3rem;
+  }
+  
+  .guestContent p {
+    font-size: 0.9rem;
+  }
+  
+  .loginButton {
+    padding: 12px 20px;
+    font-size: 0.95rem;
+  }
+  
+  .backButton {
+    padding: 10px 16px;
+    font-size: 0.85rem;
+  }
+} 
