@@ -1190,12 +1190,24 @@ export default function ChatInterface() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ url })
               });
-              const data = await response.json();
-              if (!response.ok) throw new Error(data.error || 'Ошибка извлечения текста');
-              // Сразу запускаем обработку большого текста
-              await handleLargeText(data.text);
+              const contentType = response.headers.get('content-type');
+              if (!response.ok) {
+                // Пробуем получить текст ошибки
+                const errorText = contentType && contentType.includes('application/json')
+                  ? (await response.json()).error
+                  : await response.text();
+                throw new Error(errorText || 'Ошибка извлечения текста');
+              }
+              if (contentType && contentType.includes('application/json')) {
+                const data = await response.json();
+                // Сразу запускаем обработку большого текста
+                await handleLargeText(data.text);
+              } else {
+                const text = await response.text();
+                throw new Error('Сервер вернул не JSON: ' + text);
+              }
             } catch (err) {
-              alert('Ошибка при извлечении текста с сайта');
+              alert('Ошибка при извлечении текста с сайта: ' + (err instanceof Error ? err.message : err));
             } finally {
               setFileLoading(false);
             }

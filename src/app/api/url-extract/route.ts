@@ -18,6 +18,12 @@ async function improvedScraper(url: string) {
         }
         const html = await response.text();
         const root = parse(html);
+        // Удаляем все <script>, <style>, <noscript>, <template>
+        ['script', 'style', 'noscript', 'template'].forEach(tag => {
+          root.querySelectorAll(tag).forEach(el => el.remove());
+        });
+        // Удаляем скрытые элементы (display:none, visibility:hidden)
+        root.querySelectorAll('[style*="display:none"], [style*="visibility:hidden"]').forEach(el => el.remove());
         const strategies = [
             () => root.querySelector('main')?.text,
             () => root.querySelector('article')?.text,
