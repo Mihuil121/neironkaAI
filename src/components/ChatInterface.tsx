@@ -67,13 +67,22 @@ function ThemeToggle() {
 }
 
 // Добавим компонент этапов загрузки
-function ProgressStage({ isThinking, chunkProgress, isLoading }: { isThinking: boolean, chunkProgress: any, isLoading: boolean }) {
+function ProgressStage({ isThinking, chunkProgress, isLoading, reasoningEnabled, webSearchEnabled }: { isThinking: boolean, chunkProgress: any, isLoading: boolean, reasoningEnabled?: boolean, webSearchEnabled?: boolean }) {
+  const { t } = useTranslation();
   if (!isThinking && !isLoading) return null;
-  let stageText = 'Модель думает...';
+  let stageText = t('status_idle');
   if (chunkProgress) {
-    stageText = `${chunkProgress.stage} (${chunkProgress.current} из ${chunkProgress.total})`;
+    if (/ищем|search/i.test(chunkProgress.stage)) stageText = t('status_searching');
+    else if (/анализ|reason/i.test(chunkProgress.stage)) stageText = t('status_reasoning');
+    else if (/ответ|answer/i.test(chunkProgress.stage)) stageText = t('status_answering');
+    else if (/ссылка|link/i.test(chunkProgress.stage)) stageText = t('status_extracting_links');
+    else if (/источник|source/i.test(chunkProgress.stage)) stageText = t('status_studying_sources');
+    else stageText = chunkProgress.stage;
+    stageText += ` (${chunkProgress.current} из ${chunkProgress.total})`;
   } else if (isLoading) {
-    stageText = 'Модель ищет в интернете...';
+    if (reasoningEnabled) stageText = t('status_reasoning');
+    else if (webSearchEnabled) stageText = t('status_searching');
+    else stageText = t('status_idle');
   }
   return (
     <div className={styles.progressStage}>
@@ -1023,7 +1032,7 @@ export default function ChatInterface() {
             {isThinking || isLoading ? (
               <div className={`${styles.message} ${styles.aiMessage}`}>
                 <div className={styles.messageContent}>
-                  <ProgressStage isThinking={isThinking} chunkProgress={chunkProgress} isLoading={isLoading} />
+                  <ProgressStage isThinking={isThinking} chunkProgress={chunkProgress} isLoading={isLoading} reasoningEnabled={currentChat?.reasoningEnabled} webSearchEnabled={currentChat?.webSearchEnabled} />
                 </div>
                 <div className={styles.messageAvatar}>
                   <Image src={Ai} alt="AI" width={32} height={32} style={{ borderRadius: '50%' }} />

@@ -85,6 +85,14 @@ export const translations = {
     fileRemove: 'Удалить файл',
     fileFormatError: 'Формат файла не поддерживается.',
     fileExtractionError: 'Ошибка извлечения текста из файла',
+
+    // Статусы этапов
+    status_searching: 'Ищем в интернете...',
+    status_reasoning: 'Анализируем...',
+    status_answering: 'Готовится ответ...',
+    status_extracting_links: 'Ищутся ссылки...',
+    status_studying_sources: 'Изучаются источники...',
+    status_idle: 'Ожидание запроса...',
   },
 
   en: {
@@ -173,6 +181,14 @@ export const translations = {
     fileRemove: 'Remove file',
     fileFormatError: 'File format is not supported.',
     fileExtractionError: 'Error extracting text from file',
+
+    // Statuses
+    status_searching: 'Searching the internet...',
+    status_reasoning: 'Reasoning...',
+    status_answering: 'Generating answer...',
+    status_extracting_links: 'Extracting links...',
+    status_studying_sources: 'Studying sources...',
+    status_idle: 'Waiting for input...',
   },
 };
 
@@ -198,14 +214,17 @@ export type TranslationKeys =
   | 'noChats'
   | 'deleteChat'
   | 'logout'
-  | 'login'
-  | 'register'
-  | 'settings'
-  | 'settingsTooltip'
+  | 'message'
+  | 'messagePlaceholder'
+  | 'thinking'
+  | 'reasoning'
+  | 'reasoningCollapsed'
+  | 'finalAnswer'
+  | 'expandReasoning'
+  | 'collapseReasoning'
   | 'deepThink'
   | 'deepThinkTooltip'
-  | 'webSearch'
-  | 'webSearchTooltip'
+  | 'selectModel'
   | 'uploadFile'
   | 'uploadDisabled'
   | 'uploadContent'
@@ -221,14 +240,37 @@ export type TranslationKeys =
   | 'siteDesc'
   | 'sitePlaceholder'
   | 'fileRemove'
-  | 'finalAnswer'
-  | 'reasoning'
-  | 'reasoningCollapsed'
-  | 'expandReasoning'
-  | 'collapseReasoning'
+  | 'fileUpload'
+  | 'fileFormatError'
   | 'fileExtractionError'
-  | 'message'
-  | 'messagePlaceholder';
+  | 'settings'
+  | 'settingsTooltip'
+  | 'settingsTitle'
+  | 'interfaceLanguage'
+  | 'theme'
+  | 'darkTheme'
+  | 'lightTheme'
+  | 'russian'
+  | 'english'
+  | 'login'
+  | 'register'
+  | 'email'
+  | 'password'
+  | 'name'
+  | 'adminCode'
+  | 'loginError'
+  | 'registerError'
+  | 'messageRequired'
+  | 'requestError'
+  // Новые ключи статусов этапов
+  | 'status_searching'
+  | 'status_reasoning'
+  | 'status_answering'
+  | 'status_extracting_links'
+  | 'status_studying_sources'
+  | 'status_idle'
+  | 'webSearch'
+  | 'webSearchTooltip';
 
 export const useTranslation = () => {
   const { language } = useAuthStore();
