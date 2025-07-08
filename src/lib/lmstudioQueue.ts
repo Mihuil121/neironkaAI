@@ -5,5 +5,5 @@ const queue = new PQueue({ concurrency: 1 });
 
 // Функция-обёртка для обращения к LM Studio через очередь
 export async function askLMStudioWithQueue<T>(fn: () => Promise<T>): Promise<T> {
-  return queue.add(fn);
+  return queue.add(fn) as Promise<T>;
 } 

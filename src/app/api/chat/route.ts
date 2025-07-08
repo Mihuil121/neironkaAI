@@ -205,8 +205,13 @@ export async function POST(request: NextRequest) {
       const analyses: { url: string, title: string, analysis: string }[] = [];
       const CHUNK_SIZE = 2000;
       let chunkProgressArr: { site: number, totalSites: number, chunk: number, totalChunks: number }[] = [];
-      for (let siteIdx = 0; siteIdx < links.length; siteIdx++) {
+      let siteIdx = 0;
+      let triedSites = 0;
+      const maxTries = Math.min(8, links.length); // максимум 8 сайтов подряд
+      while (siteIdx < links.length && analyses.length < 4 && triedSites < maxTries) {
         const link = links[siteIdx];
+        siteIdx++;
+        triedSites++;
         // 2.1. Извлекаем текст
         let text = '';
         try {
@@ -219,7 +224,7 @@ export async function POST(request: NextRequest) {
           if (extractRes.ok && extractData.text && extractData.text.length > 500) {
             text = extractData.text;
           } else {
-            continue; // если не удалось извлечь текст — пропускаем
+            continue; // если не удалось извлечь текст — пробуем следующий сайт
           }
         } catch {
           continue;
@@ -233,7 +238,7 @@ export async function POST(request: NextRequest) {
         for (let chunkIdx = 0; chunkIdx < chunks.length; chunkIdx++) {
           const chunk = chunks[chunkIdx];
           // Для фронта: сохраняем прогресс (можно отправлять через SSE или WebSocket, если нужно)
-          chunkProgressArr.push({ site: siteIdx + 1, totalSites: links.length, chunk: chunkIdx + 1, totalChunks: chunks.length });
+          chunkProgressArr.push({ site: analyses.length + 1, totalSites: links.length, chunk: chunkIdx + 1, totalChunks: chunks.length });
           // 2.3. Анализируем каждый чанк
           let chunkAnalysis = '';
           try {
