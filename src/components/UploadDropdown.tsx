@@ -3,6 +3,7 @@
 import React, { useState, useRef } from 'react';
 import { FiUpload, FiImage, FiFile, FiYoutube, FiX } from 'react-icons/fi';
 import styles from './UploadDropdown.module.scss';
+import { useTranslation } from '@/lib/translations';
 
 interface UploadDropdownProps {
   isOpen: boolean;
@@ -28,6 +29,7 @@ export default function UploadDropdown({
   const [isLoading, setIsLoading] = useState(false);
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [siteUrl, setSiteUrl] = useState('');
+  const { t } = useTranslation();
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -91,7 +93,7 @@ export default function UploadDropdown({
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.dropdown} onClick={(e) => e.stopPropagation()}>
         <div className={styles.header}>
-          <h3>Загрузить контент</h3>
+          <h3>{t('uploadContent')}</h3>
           <button className={styles.closeBtn} onClick={onClose}>
             <FiX />
           </button>
@@ -106,8 +108,8 @@ export default function UploadDropdown({
             >
               <FiFile className={styles.optionIcon} />
               <div className={styles.optionText}>
-                <span className={styles.optionTitle}>Файл</span>
-                <span className={styles.optionDesc}>PDF, TXT, JSON и другие</span>
+                <span className={styles.optionTitle}>{t('file')}</span>
+                <span className={styles.optionDesc}>{t('fileDesc')}</span>
               </div>
             </button>
             <input
@@ -127,8 +129,8 @@ export default function UploadDropdown({
             >
               <FiImage className={styles.optionIcon} />
               <div className={styles.optionText}>
-                <span className={styles.optionTitle}>Изображение</span>
-                <span className={styles.optionDesc}>JPG, PNG, GIF и другие</span>
+                <span className={styles.optionTitle}>{t('image')}</span>
+                <span className={styles.optionDesc}>{t('imageDesc')}</span>
               </div>
             </button>
             <input
@@ -149,8 +151,8 @@ export default function UploadDropdown({
               >
                 <FiYoutube className={styles.optionIcon} />
                 <div className={styles.optionText}>
-                  <span className={styles.optionTitle}>YouTube видео</span>
-                  <span className={styles.optionDesc}>Извлечь транскрипт</span>
+                  <span className={styles.optionTitle}>{t('youtubeVideo')}</span>
+                  <span className={styles.optionDesc}>{t('youtubeDesc')}</span>
                 </div>
               </button>
             ) : (
@@ -158,14 +160,14 @@ export default function UploadDropdown({
                 <div className={styles.youtubeInput}>
                   <input
                     type="url"
-                    placeholder="Вставьте ссылку на YouTube видео..."
+                    placeholder={t('youtubePlaceholder')}
                     value={youtubeUrl}
                     onChange={(e) => setYoutubeUrl(e.target.value)}
                     className={styles.urlInput}
                     autoFocus
                   />
                   <button type="submit" className={styles.submitBtn} disabled={isLoading}>
-                    {isLoading ? 'Загрузка...' : 'Загрузить'}
+                    {isLoading ? t('loading') : t('upload')}
                   </button>
                 </div>
                 <button
@@ -173,7 +175,7 @@ export default function UploadDropdown({
                   onClick={() => setShowYouTubeInput(false)}
                   className={styles.cancelBtn}
                 >
-                  Отмена
+                  {t('cancel')}
                 </button>
               </form>
             )}
@@ -188,8 +190,8 @@ export default function UploadDropdown({
               >
                 <FiUpload className={styles.optionIcon} />
                 <div className={styles.optionText}>
-                  <span className={styles.optionTitle}>Сайт (URL)</span>
-                  <span className={styles.optionDesc}>Извлечь текст с веб-страницы</span>
+                  <span className={styles.optionTitle}>{t('siteUrl')}</span>
+                  <span className={styles.optionDesc}>{t('siteDesc')}</span>
                 </div>
               </button>
             ) : (
@@ -197,14 +199,14 @@ export default function UploadDropdown({
                 <div className={styles.youtubeInput}>
                   <input
                     type="url"
-                    placeholder="Вставьте ссылку на сайт..."
+                    placeholder={t('sitePlaceholder')}
                     value={siteUrl}
                     onChange={(e) => setSiteUrl(e.target.value)}
                     className={styles.urlInput}
                     autoFocus
                   />
                   <button type="submit" className={styles.submitBtn} disabled={isLoading}>
-                    {isLoading ? 'Загрузка...' : 'Загрузить'}
+                    {isLoading ? t('loading') : t('upload')}
                   </button>
                 </div>
                 <button
@@ -212,7 +214,7 @@ export default function UploadDropdown({
                   onClick={() => setShowUrlInput(false)}
                   className={styles.cancelBtn}
                 >
-                  Отмена
+                  {t('cancel')}
                 </button>
               </form>
             )}

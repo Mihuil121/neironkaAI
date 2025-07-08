@@ -30,9 +30,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const handleLangChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newLang = e.target.value;
     setLanguage(newLang);
-    if (typeof window !== 'undefined') {
-      window.location.reload();
-    }
+    // window.location.reload(); // удалено для мгновенного перевода
   };
 
   const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {

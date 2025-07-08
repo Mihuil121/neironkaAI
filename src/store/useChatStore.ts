@@ -41,6 +41,7 @@ interface ChatState {
   deleteMessage: (chatId: string, messageId: string) => void;
   chatThemeLight: boolean; // true — светлая, false — тёмная
   toggleChatTheme: () => void;
+  renameChat: (chatId: string, newTitle: string) => void;
 }
 
 export const useChatStore = create<ChatState>()(
@@ -232,6 +233,14 @@ export const useChatStore = create<ChatState>()(
             chat.id === chatId
               ? { ...chat, messages: chat.messages.filter((msg) => msg.id !== messageId) }
               : chat
+          ),
+        }));
+      },
+
+      renameChat: (chatId: string, newTitle: string) => {
+        set((state) => ({
+          chats: state.chats.map((chat) =>
+            chat.id === chatId ? { ...chat, title: newTitle } : chat
           ),
         }));
       },

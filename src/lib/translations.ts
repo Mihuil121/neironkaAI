@@ -1,7 +1,7 @@
 export const translations = {
   ru: {
     // Общие
-    welcome: 'Добро пожаловать в Fox AI!',
+    welcome: 'Добро пожаловать в Neironka Ai!',
     welcomeSubtitle: 'Я ваш AI помощник. Задавайте мне любые вопросы, и я постараюсь помочь!',
     online: 'Онлайн',
     user: 'Пользователь',
@@ -33,10 +33,23 @@ export const translations = {
     collapseReasoning: 'Свернуть reasoning',
 
     // Кнопки
-    deepThink: 'DeepThink',
-    deepThinkTooltip: 'Глубокое мышление',
+    deepThink: 'Думать',
+    deepThinkTooltip: 'Включить глубокое мышление',
     selectModel: 'Выбрать модель',
-    uploadFile: 'Загрузить файл или фото',
+    uploadFile: 'Загрузить',
+    uploadDisabled: 'Загрузка файлов недоступна при включённом веб-поиске',
+    uploadContent: 'Загрузить контент',
+    file: 'Файл',
+    fileDesc: 'PDF, TXT, JSON и другие',
+    image: 'Изображение',
+    imageDesc: 'JPG, PNG, GIF и другие',
+    youtubeVideo: 'YouTube видео',
+    youtubeDesc: 'Извлечь транскрипт',
+    youtubePlaceholder: 'Вставьте ссылку на YouTube видео...',
+    upload: 'Загрузить',
+    siteUrl: 'Сайт (URL)',
+    siteDesc: 'Извлечь текст с веб-страницы',
+    sitePlaceholder: 'Вставьте ссылку на сайт...',
     settings: 'Настройки',
     settingsTooltip: 'Настройки',
 
@@ -76,7 +89,7 @@ export const translations = {
 
   en: {
     // General
-    welcome: 'Welcome to Fox AI!',
+    welcome: 'Welcome to Neironka Ai!',
     welcomeSubtitle: 'I am your AI assistant. Ask me any questions and I will try to help!',
     online: 'Online',
     user: 'User',
@@ -109,9 +122,22 @@ export const translations = {
 
     // Buttons
     deepThink: 'DeepThink',
-    deepThinkTooltip: 'Deep thinking',
+    deepThinkTooltip: 'Enable deep reasoning',
     selectModel: 'Select model',
-    uploadFile: 'Upload file or photo',
+    uploadFile: 'Upload',
+    uploadDisabled: 'File upload is unavailable when web search is enabled',
+    uploadContent: 'Upload content',
+    file: 'File',
+    fileDesc: 'PDF, TXT, JSON and others',
+    image: 'Image',
+    imageDesc: 'JPG, PNG, GIF and others',
+    youtubeVideo: 'YouTube video',
+    youtubeDesc: 'Extract transcript',
+    youtubePlaceholder: 'Paste YouTube video link...',
+    upload: 'Upload',
+    siteUrl: 'Site (URL)',
+    siteDesc: 'Extract text from web page',
+    sitePlaceholder: 'Paste site link...',
     settings: 'Settings',
     settingsTooltip: 'Settings',
 
@@ -153,13 +179,62 @@ export const translations = {
 import { useAuthStore } from '@/store/useAuthStore';
 
 export type Language = keyof typeof translations;
-export type TranslationKey = keyof typeof translations.ru;
+export type TranslationKeys =
+  | 'welcome'
+  | 'welcomeSubtitle'
+  | 'online'
+  | 'user'
+  | 'send'
+  | 'cancel'
+  | 'close'
+  | 'save'
+  | 'delete'
+  | 'edit'
+  | 'loading'
+  | 'error'
+  | 'success'
+  | 'newChat'
+  | 'chatTitle'
+  | 'noChats'
+  | 'deleteChat'
+  | 'logout'
+  | 'login'
+  | 'register'
+  | 'settings'
+  | 'settingsTooltip'
+  | 'deepThink'
+  | 'deepThinkTooltip'
+  | 'webSearch'
+  | 'webSearchTooltip'
+  | 'uploadFile'
+  | 'uploadDisabled'
+  | 'uploadContent'
+  | 'file'
+  | 'fileDesc'
+  | 'image'
+  | 'imageDesc'
+  | 'youtubeVideo'
+  | 'youtubeDesc'
+  | 'youtubePlaceholder'
+  | 'upload'
+  | 'siteUrl'
+  | 'siteDesc'
+  | 'sitePlaceholder'
+  | 'fileRemove'
+  | 'finalAnswer'
+  | 'reasoning'
+  | 'reasoningCollapsed'
+  | 'expandReasoning'
+  | 'collapseReasoning'
+  | 'fileExtractionError'
+  | 'message'
+  | 'messagePlaceholder';
 
 export const useTranslation = () => {
   const { language } = useAuthStore();
   
-  const t = (key: TranslationKey): string => {
-    return translations[language as Language]?.[key] || translations.ru[key] || key;
+  const t = (key: TranslationKeys): string => {
+    return (translations[language as Language] as any)?.[key] || (translations.ru as any)[key] || key;
   };
 
   return { t, language };

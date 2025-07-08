@@ -9,7 +9,7 @@ import UploadDropdown from './UploadDropdown';
 import SettingsModal from './SettingsModal';
 import ShareModal from './ShareModal';
 import styles from './ChatInterface.module.scss';
-import { FiPlus, FiTrash2, FiLogOut, FiMessageSquare, FiUser, FiSend, FiUpload, FiSettings, FiX, FiZap, FiSearch, FiChevronDown, FiChevronUp, FiChevronLeft, FiChevronRight, FiShare2, FiMenu, FiCopy, FiRefreshCw } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiLogOut, FiMessageSquare, FiUser, FiSend, FiUpload, FiSettings, FiX, FiZap, FiSearch, FiChevronDown, FiChevronUp, FiChevronLeft, FiChevronRight, FiShare2, FiMenu, FiCopy, FiRefreshCw, FiEdit2 } from 'react-icons/fi';
 import { FaRobot } from 'react-icons/fa';
 import Tesseract from 'tesseract.js';
 import { supabase } from '@/lib/supabaseClient';
@@ -66,6 +66,24 @@ function ThemeToggle() {
   );
 }
 
+// Добавим компонент этапов загрузки
+function ProgressStage({ isThinking, chunkProgress, isLoading }: { isThinking: boolean, chunkProgress: any, isLoading: boolean }) {
+  if (!isThinking && !isLoading) return null;
+  let stageText = 'Модель думает...';
+  if (chunkProgress) {
+    stageText = `${chunkProgress.stage} (${chunkProgress.current} из ${chunkProgress.total})`;
+  } else if (isLoading) {
+    stageText = 'Модель ищет в интернете...';
+  }
+  return (
+    <div className={styles.progressStage}>
+      <FiZap className={styles.thinkingIcon} />
+      <span>{stageText}</span>
+      <span className={styles.thinkingDots}><span></span><span></span><span></span></span>
+    </div>
+  );
+}
+
 export default function ChatInterface() {
   const [message, setMessage] = useState('');
   const [newChatTitle, setNewChatTitle] = useState('');
@@ -93,6 +111,7 @@ export default function ChatInterface() {
     toggleWebSearch,
     clearError,
     chatThemeLight,
+    renameChat, // добавили
   } = useChatStore();
   const { user, logout, setLanguage, apiKey, setApiKey } = useAuthStore();
   const [collapsedReasoning, setCollapsedReasoning] = useState<{ [msgId: string]: boolean }>({});
@@ -102,6 +121,8 @@ export default function ChatInterface() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
   const [chunkProgress, setChunkProgress] = useState<{stage: string, current: number, total: number} | null>(null);
+  const [editingChatId, setEditingChatId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
 
   const { t, language } = useTranslation();
 
@@ -174,6 +195,13 @@ export default function ChatInterface() {
   useEffect(() => {
     setIsHydrated(true);
   }, []);
+
+  useEffect(() => {
+    if (isHydrated && (!currentChatId || chats.length === 0)) {
+      // Если нет чата — создаём автоматически
+      createChat('Новый чат', models[0]?.id || 'neironka');
+    }
+  }, [isHydrated, currentChatId, chats.length, createChat, models]);
 
   const compressText = async (text: string, apiKey: string, language: string) => {
     // Новый способ: отправляем на /api/compress, не добавляя в чат
@@ -562,7 +590,7 @@ export default function ChatInterface() {
         <aside className={`${styles.sidebar} ${isSidebarCollapsed ? styles.sidebarCollapsed : ''}`} style={{ display: typeof window !== 'undefined' && window.innerWidth <= 767 ? 'none' : undefined }}>
           <div className={styles.sidebarHeader}>
             <Image src={Ai} alt="AI" width={32} height={32} style={{ borderRadius: '50%' }} />
-            <span className={styles.appName}>Neironka AI</span>
+            <span className={styles.appName}>Neironka Ai</span>
             <button
               className={styles.collapseBtn}
               onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
@@ -585,7 +613,45 @@ export default function ChatInterface() {
                 }
                 onClick={() => selectChat(chat.id)}
               >
-                <span className={styles.chatTitle}><FiMessageSquare style={{marginRight: 6}} />{chat.title}</span>
+                <span className={styles.chatTitle}>
+                  <FiMessageSquare style={{marginRight: 6}} />
+                  {editingChatId === chat.id ? (
+                    <input
+                      type="text"
+                      value={editingTitle}
+                      autoFocus
+                      onChange={e => setEditingTitle(e.target.value)}
+                      onBlur={() => {
+                        if (editingTitle.trim() && editingTitle !== chat.title) renameChat(chat.id, editingTitle.trim());
+                        setEditingChatId(null);
+                      }}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          if (editingTitle.trim() && editingTitle !== chat.title) renameChat(chat.id, editingTitle.trim());
+                          setEditingChatId(null);
+                        } else if (e.key === 'Escape') {
+                          setEditingChatId(null);
+                        }
+                      }}
+                      className={styles.renameInput}
+                      style={{fontSize: '1em', padding: '2px 6px', borderRadius: 4, border: '1px solid #888', width: '80%'}}
+                    />
+                  ) : (
+                    <>
+                      {chat.title}
+                      {chat.id === currentChatId && (
+                        <button
+                          className={styles.renameBtn}
+                          style={{marginLeft: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#aaa'}}
+                          title="Переименовать чат"
+                          onClick={e => { e.stopPropagation(); setEditingChatId(chat.id); setEditingTitle(chat.title); }}
+                        >
+                          <FiEdit2 size={15} />
+                        </button>
+                      )}
+                    </>
+                  )}
+                </span>
                 <div className={styles.chatActions}>
                   <button
                     className={styles.shareChatBtn}
@@ -642,7 +708,7 @@ export default function ChatInterface() {
           <>
             <div className={styles.mobileHeader}>
               <Image src={Ai} alt="AI" width={32} height={32} style={{ borderRadius: '50%' }} />
-              <span className={styles.appName}>Neironka AI</span>
+              <span className={styles.appName}>Neironka Ai</span>
               <button className={styles.menuBtn} onClick={() => setMobileMenuOpen(true)} title="Открыть меню">
                 <FiMenu />
               </button>
@@ -785,7 +851,7 @@ export default function ChatInterface() {
                             <div className={styles.answerHeader}>
                               <span className={styles.answerTitle}>{t('finalAnswer')}</span>
                             </div>
-                            <MessageRenderer content={msg.answer} themeLight={chatThemeLight} />
+                            <MessageRenderer content={msg.answer} themeLight={chatThemeLight} role="assistant" />
                             {/* Кнопки снизу финального ответа */}
                             <div style={{display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8}}>
                               <button className={styles.copyBtn} onClick={() => navigator.clipboard.writeText(msg.answer || '')} title="Скопировать ответ"><FiCopy /></button>
@@ -846,7 +912,7 @@ export default function ChatInterface() {
                     ) : (
                       <>
                         <div className={styles.messageText}>
-                          <MessageRenderer content={msg.role === 'assistant' && msg.answer ? msg.answer : msg.content} themeLight={chatThemeLight} />
+                          <MessageRenderer content={msg.role === 'assistant' && msg.answer ? msg.answer : msg.content} themeLight={chatThemeLight} role={msg.role} />
                         </div>
                         {/* Кнопки ссылок для обычных сообщений AI */}
                         {msg.role === 'assistant' && Array.isArray(msg.searchSources) && msg.searchSources.length > 0 && (
@@ -954,41 +1020,16 @@ export default function ChatInterface() {
               ))
             )}
 
-            {isLoading && (
+            {isThinking || isLoading ? (
               <div className={`${styles.message} ${styles.aiMessage}`}>
                 <div className={styles.messageContent}>
-                  <div className={styles.typingIndicator}>
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                  </div>
+                  <ProgressStage isThinking={isThinking} chunkProgress={chunkProgress} isLoading={isLoading} />
                 </div>
                 <div className={styles.messageAvatar}>
                   <Image src={Ai} alt="AI" width={32} height={32} style={{ borderRadius: '50%' }} />
                 </div>
               </div>
-            )}
-
-            {isThinking && (
-              <div className={`${styles.message} ${styles.aiMessage}`}>
-                <div className={styles.messageContent}>
-                  <div className={styles.thinkingIndicator}>
-                    <div className={styles.thinkingText}>
-                      <FiZap className={styles.thinkingIcon} />
-                      Модель думает...
-                    </div>
-                    <div className={styles.thinkingDots}>
-                      <span></span>
-                      <span></span>
-                      <span></span>
-                    </div>
-                  </div>
-                </div>
-                <div className={styles.messageAvatar}>
-                  <Image src={Ai} alt="AI" width={32} height={32} style={{ borderRadius: '50%' }} />
-                </div>
-              </div>
-            )}
+            ) : null}
 
             {isThinking && chunkProgress && (
               <div style={{textAlign: 'center', color: '#f59e42', fontWeight: 600, margin: '16px 0'}}>
@@ -1060,7 +1101,7 @@ export default function ChatInterface() {
               >
                 <div style={{display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: isMobile ? 'center' : 'flex-start', gap: 4, width: isMobile ? '100%' : undefined}}>
                   <FiZap />
-                  {isMobile ? <span style={{fontSize: '0.9em', marginLeft: 4}}>DeepThink</span> : t('deepThink')}
+                  <span style={{fontSize: '0.9em', marginLeft: 4}}>{t('deepThink')}</span>
                 </div>
               </button>
               {/* Веб-поиск */}
@@ -1069,11 +1110,11 @@ export default function ChatInterface() {
                 className={styles.controlBtn + (currentChat?.webSearchEnabled ? ' ' + styles.controlBtnActive : '')}
                 onClick={handleToggleWebSearch}
                 disabled={!currentChat}
-                title="Включить поиск в интернете"
+                title={t('webSearchTooltip')}
               >
                 <div style={{display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: isMobile ? 'center' : 'flex-start', gap: 4, width: isMobile ? '100%' : undefined}}>
                   <FiSearch />
-                  {isMobile && !isVerySmall ? <span style={{fontSize: '0.9em', marginLeft: 4}}>Веб-поиск</span> : (!isMobile && 'Веб-поиск')}
+                  <span style={{fontSize: '0.9em', marginLeft: 4}}>{t('webSearch')}</span>
                 </div>
               </button>
               {/* Выбор модели */}
@@ -1100,7 +1141,7 @@ export default function ChatInterface() {
                   if (!currentChat?.webSearchEnabled) setShowUploadDropdown(true);
                 }}
                 disabled={fileLoading || isLoading || currentChat?.webSearchEnabled}
-                title={currentChat?.webSearchEnabled ? 'Загрузка файлов недоступна при включённом веб-поиске' : t('uploadFile')}
+                title={currentChat?.webSearchEnabled ? t('uploadDisabled') : t('uploadFile')}
               >
                 <FiUpload />
               </button>

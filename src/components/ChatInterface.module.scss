@@ -1923,3 +1923,63 @@
     padding: 4px 6px;
   }
 }
+
+.renameInput {
+  font-size: 1em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #888;
+  width: 80%;
+  background: var(--input-bg, #23232a);
+  color: var(--foreground, #fff);
+  outline: none;
+}
+.renameInput:focus {
+  border: 1.5px solid var(--accent, #f97316);
+}
+.renameBtn {
+  margin-left: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #aaa;
+  padding: 0;
+  transition: color 0.2s;
+}
+.renameBtn:hover {
+  color: var(--accent, #f97316);
+}
+
+.progressStage {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 1.18rem;
+  color: #f59e42;
+  font-weight: 700;
+  margin: 8px 0 8px 0;
+  justify-content: flex-start;
+}
+.progressStage .thinkingIcon {
+  font-size: 1.3em;
+  color: #f59e42;
+}
+.progressStage .thinkingDots {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 8px;
+}
+.progressStage .thinkingDots span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #f59e42;
+  opacity: 0.7;
+  animation: typing 1.4s infinite ease-in-out;
+}
+.progressStage .thinkingDots span:nth-child(1) { animation-delay: -0.32s; }
+.progressStage .thinkingDots span:nth-child(2) { animation-delay: -0.16s; }
+@keyframes typing {
+  0%, 80%, 100% { opacity: 0.7; transform: scale(1); }
+  40% { opacity: 1; transform: scale(1.2); }
+}
