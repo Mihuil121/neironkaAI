@@ -187,6 +187,190 @@ export async function POST(request: NextRequest) {
     const selectedModel = MODEL_MAP[modelId] || 'local-model';
     const prompts = PROMPTS[language as keyof typeof PROMPTS] || PROMPTS.ru;
 
+    // --- Новый алгоритм: webSearchEnabled ---
+    if (webSearchEnabled) {
+      // 1. Получаем 4 настоящие ссылки через /api/web-search
+      const webSearchRes = await fetch(`${request.nextUrl.origin}/api/web-search`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: message })
+      });
+      const webSearchData = await webSearchRes.json();
+      if (!webSearchRes.ok || !webSearchData.results || !Array.isArray(webSearchData.results) || webSearchData.results.length === 0) {
+        return NextResponse.json({ error: 'Не удалось найти сайты для поиска' }, { status: 500 });
+      }
+      const links = webSearchData.results;
+      // 2. Для каждой ссылки — извлекаем текст и анализируем ИИ по чанкам
+      const analyses: { url: string, title: string, analysis: string }[] = [];
+      const CHUNK_SIZE = 2000;
+      let chunkProgressArr: { site: number, totalSites: number, chunk: number, totalChunks: number }[] = [];
+      for (let siteIdx = 0; siteIdx < links.length; siteIdx++) {
+        const link = links[siteIdx];
+        // 2.1. Извлекаем текст
+        let text = '';
+        try {
+          const extractRes = await fetch(`${request.nextUrl.origin}/api/url-extract`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: link.url })
+          });
+          const extractData = await extractRes.json();
+          if (extractRes.ok && extractData.text && extractData.text.length > 500) {
+            text = extractData.text;
+          } else {
+            continue; // если не удалось извлечь текст — пропускаем
+          }
+        } catch {
+          continue;
+        }
+        // 2.2. Разбиваем текст на чанки
+        const chunks: string[] = [];
+        for (let i = 0; i < text.length; i += CHUNK_SIZE) {
+          chunks.push(text.slice(i, i + CHUNK_SIZE));
+        }
+        let chunkAnalyses: string[] = [];
+        for (let chunkIdx = 0; chunkIdx < chunks.length; chunkIdx++) {
+          const chunk = chunks[chunkIdx];
+          // Для фронта: сохраняем прогресс (можно отправлять через SSE или WebSocket, если нужно)
+          chunkProgressArr.push({ site: siteIdx + 1, totalSites: links.length, chunk: chunkIdx + 1, totalChunks: chunks.length });
+          // 2.3. Анализируем каждый чанк
+          let chunkAnalysis = '';
+          try {
+            let analysisPrompt = `Проанализируй этот фрагмент сайта по теме: ${message}\n\nВот фрагмент текста:\n${chunk}\n\nСформулируй, что важного/полезного ты понял из этого фрагмента. Не используй внешние знания, только этот текст.`;
+            if (modelId === 'neironka') {
+              chunkAnalysis = await askLMStudio([
+                { role: 'system', content: prompts.system },
+                { role: 'user', content: analysisPrompt }
+              ], 0.7, 600);
+            } else {
+              const openai = getOpenAI(apiKey);
+              const completion = await openai.chat.completions.create({
+                model: selectedModel,
+                messages: [
+                  { role: 'system', content: prompts.system },
+                  { role: 'user', content: analysisPrompt }
+                ],
+                max_tokens: 600,
+                temperature: 0.7,
+              });
+              chunkAnalysis = completion.choices[0].message.content || '';
+            }
+          } catch {
+            chunkAnalysis = '[Ошибка анализа фрагмента сайта]';
+          }
+          chunkAnalyses.push(chunkAnalysis);
+        }
+        // 2.4. Объединяем выводы по чанкам в итог по сайту
+        let siteAnalysis = '';
+        try {
+          let mergePrompt = `Вот выводы по частям сайта:\n${chunkAnalyses.map((a, i) => `[Часть ${i+1}]: ${a}`).join('\n')}\n\nОбъедини эти выводы в единый итог по сайту, не добавляй ничего лишнего.`;
+          if (modelId === 'neironka') {
+            siteAnalysis = await askLMStudio([
+              { role: 'system', content: prompts.system },
+              { role: 'user', content: mergePrompt }
+            ], 0.7, 800);
+          } else {
+            const openai = getOpenAI(apiKey);
+            const completion = await openai.chat.completions.create({
+              model: selectedModel,
+              messages: [
+                { role: 'system', content: prompts.system },
+                { role: 'user', content: mergePrompt }
+              ],
+              max_tokens: 800,
+              temperature: 0.7,
+            });
+            siteAnalysis = completion.choices[0].message.content || '';
+          }
+        } catch {
+          siteAnalysis = chunkAnalyses.join('\n');
+        }
+        analyses.push({ url: link.url, title: link.title, analysis: siteAnalysis });
+      }
+      // 3. Собираем финальный промпт
+      const finalPrompt = `Пользователь хочет: ${message}\n\nВот что удалось узнать из сайтов:\n${analyses.map((a, i) => `[${i+1}] ${a.title} (${a.url})\n${a.analysis}`).join('\n\n')}\n\nСформулируй итоговый ответ для пользователя, строго опираясь только на эти выводы.`;
+      let answer = '';
+      let reasoning = null;
+      if (webSearchEnabled && reasoningEnabled) {
+        // Сначала получаем финальный ответ по сайтам
+        let sitesAnswer = '';
+        if (modelId === 'neironka') {
+          sitesAnswer = await askLMStudio([
+            { role: 'system', content: prompts.system },
+            { role: 'user', content: finalPrompt }
+          ], 0.7, 1000);
+        } else {
+          const openai = getOpenAI(apiKey);
+          const completion = await openai.chat.completions.create({
+            model: selectedModel,
+            messages: [
+              { role: 'system', content: prompts.system },
+              { role: 'user', content: finalPrompt }
+            ],
+            max_tokens: 1000,
+            temperature: 0.7,
+          });
+          sitesAnswer = completion.choices[0].message.content || '';
+        }
+        // Теперь reasoning-промпт по этому ответу
+        const reasoningPrompt = `${prompts.reasoning}\n\nВот информация, которую удалось собрать по вашему запросу из сайтов:\n${sitesAnswer}\n\nПроанализируй эти данные, объясни логику, сделай пошаговый разбор и только потом дай финальный вывод.`;
+        if (modelId === 'neironka') {
+          reasoning = await askLMStudio([
+            { role: 'system', content: prompts.reasoning },
+            { role: 'user', content: reasoningPrompt }
+          ], 0.7, 1000);
+        } else {
+          const openai = getOpenAI(apiKey);
+          const completion = await openai.chat.completions.create({
+            model: selectedModel,
+            messages: [
+              { role: 'system', content: prompts.reasoning },
+              { role: 'user', content: reasoningPrompt }
+            ],
+            max_tokens: 1000,
+            temperature: 0.7,
+          });
+          reasoning = completion.choices[0].message.content || '';
+        }
+        answer = sitesAnswer;
+      } else {
+        // Обычный финальный ответ (поиск без reasoning)
+        if (modelId === 'neironka') {
+          answer = await askLMStudio([
+            { role: 'system', content: prompts.system },
+            { role: 'user', content: finalPrompt }
+          ], 0.7, 1000);
+        } else {
+          const openai = getOpenAI(apiKey);
+          const completion = await openai.chat.completions.create({
+            model: selectedModel,
+            messages: [
+              { role: 'system', content: prompts.system },
+              { role: 'user', content: finalPrompt }
+            ],
+            max_tokens: 1000,
+            temperature: 0.7,
+          });
+          answer = completion.choices[0].message.content || '';
+        }
+      }
+      return NextResponse.json({
+        reasoning,
+        answer,
+        role: 'assistant',
+        searchSources: analyses.map(a => ({ title: a.title, url: a.url }))
+      });
+    }
+
+    // --- Старое поведение (без webSearchEnabled) ---
+    // Если webSearchEnabled=false, то:
+    // 1. Получаем ссылки для веб-поиска (если включен)
+    // 2. Если ссылки не получены или пусты, генерируем фейковые
+    // 3. Если webSearchEnabled=false, то searchSources будет пустым или содержать фейковые
+    // 4. Если isSimpleGreeting или isGreetingWithAction — используем короткий промпт
+    // 5. Если reasoningEnabled — получаем reasoning, формируем финальный ответ
+    // 6. Если reasoningEnabled=false — обычный ответ
+
     // Явно инициализируем searchSources
     let searchSources: any[] = [];
     let webSearchSummary = '';
