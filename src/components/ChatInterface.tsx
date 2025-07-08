@@ -1092,6 +1092,7 @@ export default function ChatInterface() {
           <div className={styles.bottomControls}>
             <div className={styles.leftControls}>
               {/* DeepThink (мышление) */}
+              
               <button
                 type="button"
                 className={styles.controlBtn + (currentChat?.reasoningEnabled ? ' ' + styles.controlBtnActive : '')}

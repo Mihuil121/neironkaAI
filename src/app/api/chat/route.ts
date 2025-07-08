@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { askLMStudioWithQueue } from '@/lib/lmstudioQueue';
+// Удалил импорт askLMStudioWithQueue
+// import { askLMStudioWithQueue } from '@/lib/lmstudioQueue';
 
 // Используем API ключ из запроса или дефолтный
 const getOpenAI = (apiKey?: string) => new OpenAI({
@@ -193,12 +194,10 @@ export async function POST(request: NextRequest) {
     if (webSearchEnabled && message.length > 100) {
       // 1. Сформулировать поисковый запрос через LLM
       try {
-        const searchQuery = await askLMStudioWithQueue(() =>
-          askLMStudio([
+        const searchQuery = await askLMStudio([
             { role: 'system', content: 'Ты помощник, который умеет формулировать поисковые запросы для поиска в интернете. Сформулируй короткий и максимально релевантный поисковый запрос по теме, не повторяй исходный текст полностью.' },
             { role: 'user', content: `Преобразуй следующий текст в короткий поисковый запрос для поиска в интернете:\n\n${message}` }
-          ], 0.5, 50)
-        );
+          ], 0.5, 50);
         if (searchQuery && typeof searchQuery === 'string' && searchQuery.length > 3 && searchQuery.length < 100) {
           searchMessage = searchQuery.trim();
         }
@@ -262,10 +261,10 @@ export async function POST(request: NextRequest) {
           try {
             let analysisPrompt = `Проанализируй этот фрагмент сайта по теме: ${message}\n\nВот фрагмент текста:\n${chunk}\n\nСформулируй, что важного/полезного ты понял из этого фрагмента. Не используй внешние знания, только этот текст.`;
             if (modelId === 'neironka') {
-              chunkAnalysis = await askLMStudioWithQueue(() => askLMStudio([
+              chunkAnalysis = await askLMStudio([
                 { role: 'system', content: prompts.system },
                 { role: 'user', content: analysisPrompt }
-              ], 0.7, 600));
+              ], 0.7, 600);
             } else {
               const openai = getOpenAI(apiKey);
               const completion = await openai.chat.completions.create({
@@ -289,10 +288,10 @@ export async function POST(request: NextRequest) {
         try {
           let mergePrompt = `Вот выводы по частям сайта:\n${chunkAnalyses.map((a, i) => `[Часть ${i+1}]: ${a}`).join('\n')}\n\nОбъедини эти выводы в единый итог по сайту, не добавляй ничего лишнего.`;
           if (modelId === 'neironka') {
-            siteAnalysis = await askLMStudioWithQueue(() => askLMStudio([
+            siteAnalysis = await askLMStudio([
               { role: 'system', content: prompts.system },
               { role: 'user', content: mergePrompt }
-            ], 0.7, 800));
+            ], 0.7, 800);
           } else {
             const openai = getOpenAI(apiKey);
             const completion = await openai.chat.completions.create({
@@ -319,10 +318,10 @@ export async function POST(request: NextRequest) {
         // Сначала получаем финальный ответ по сайтам
         let sitesAnswer = '';
         if (modelId === 'neironka') {
-          sitesAnswer = await askLMStudioWithQueue(() => askLMStudio([
+          sitesAnswer = await askLMStudio([
             { role: 'system', content: prompts.system },
             { role: 'user', content: finalPrompt }
-          ], 0.7, 1000));
+          ], 0.7, 1000);
         } else {
           const openai = getOpenAI(apiKey);
           const completion = await openai.chat.completions.create({
@@ -339,10 +338,10 @@ export async function POST(request: NextRequest) {
         // Теперь reasoning-промпт по этому ответу
         const reasoningPrompt = `${prompts.reasoning}\n\nВот информация, которую удалось собрать по вашему запросу из сайтов:\n${sitesAnswer}\n\nПроанализируй эти данные, объясни логику, сделай пошаговый разбор и только потом дай финальный вывод.`;
         if (modelId === 'neironka') {
-          reasoning = await askLMStudioWithQueue(() => askLMStudio([
+          reasoning = await askLMStudio([
             { role: 'system', content: prompts.reasoning },
             { role: 'user', content: reasoningPrompt }
-          ], 0.7, 1000));
+          ], 0.7, 1000);
         } else {
           const openai = getOpenAI(apiKey);
           const completion = await openai.chat.completions.create({
@@ -360,10 +359,10 @@ export async function POST(request: NextRequest) {
       } else {
         // Обычный финальный ответ (поиск без reasoning)
         if (modelId === 'neironka') {
-          answer = await askLMStudioWithQueue(() => askLMStudio([
+          answer = await askLMStudio([
             { role: 'system', content: prompts.system },
             { role: 'user', content: finalPrompt }
-          ], 0.7, 1000));
+          ], 0.7, 1000);
         } else {
           const openai = getOpenAI(apiKey);
           const completion = await openai.chat.completions.create({
@@ -472,7 +471,7 @@ export async function POST(request: NextRequest) {
       ];
       let aiResponse: any;
       if (modelId === 'neironka') {
-        const content = await askLMStudioWithQueue(() => askLMStudio(messages, 0.7, 100));
+        const content = await askLMStudio(messages, 0.7, 100);
         aiResponse = { content, role: 'assistant' };
       } else {
         const openai = getOpenAI(apiKey);
@@ -512,7 +511,7 @@ export async function POST(request: NextRequest) {
       ];
       let aiResponse: any;
       if (modelId === 'neironka') {
-        const content = await askLMStudioWithQueue(() => askLMStudio(messages, 0.7, 120));
+        const content = await askLMStudio(messages, 0.7, 120);
         aiResponse = { content, role: 'assistant' };
       } else {
         const openai = getOpenAI(apiKey);
@@ -546,10 +545,10 @@ export async function POST(request: NextRequest) {
         try {
           let compressPrompt = `Сожми этот текст до 8000 символов, сохранив суть:\n\n${reasoningPrompt}`;
           if (modelId === 'neironka') {
-            reasoningPrompt = await askLMStudioWithQueue(() => askLMStudio([
+            reasoningPrompt = await askLMStudio([
               { role: 'system', content: prompts.system },
               { role: 'user', content: compressPrompt }
-            ], 0.5, 800));
+            ], 0.5, 800);
           } else {
             const openai = getOpenAI(apiKey);
             const completion = await openai.chat.completions.create({
@@ -575,11 +574,11 @@ export async function POST(request: NextRequest) {
       while (reasoningAttempts < 2 && !reasoning) {
         try {
           if (modelId === 'neironka') {
-            reasoning = await askLMStudioWithQueue(() => askLMStudio([
+            reasoning = await askLMStudio([
               { role: 'system', content: prompts.reasoning + (contextBlock ? '\n' + contextBlock : '') },
               ...conversationHistory,
               { role: 'user', content: reasoningPrompt }
-            ], 0.7, 800));
+            ], 0.7, 800);
           } else {
             const openai = getOpenAI(apiKey);
             const reasoningCompletion = await openai.chat.completions.create({
@@ -608,10 +607,10 @@ export async function POST(request: NextRequest) {
               try {
                 let chunkRes = '';
                 if (modelId === 'neironka') {
-                  chunkRes = await askLMStudioWithQueue(() => askLMStudio([
+                  chunkRes = await askLMStudio([
                     { role: 'system', content: prompts.reasoning },
                     { role: 'user', content: chunk }
-                  ], 0.7, 800));
+                  ], 0.7, 800);
                 } else {
                   const openai = getOpenAI(apiKey);
                   const completion = await openai.chat.completions.create({
@@ -632,10 +631,10 @@ export async function POST(request: NextRequest) {
             try {
               const mergePrompt = `Объедини эти рассуждения в единый итог:\n${chunkReasonings.map((r, i) => `[Часть ${i+1}]: ${r}`).join('\n')}`;
               if (modelId === 'neironka') {
-                reasoning = await askLMStudioWithQueue(() => askLMStudio([
+                reasoning = await askLMStudio([
                   { role: 'system', content: prompts.reasoning },
                   { role: 'user', content: mergePrompt }
-                ], 0.7, 800));
+                ], 0.7, 800);
               } else {
                 const openai = getOpenAI(apiKey);
                 const completion = await openai.chat.completions.create({
@@ -683,7 +682,7 @@ export async function POST(request: NextRequest) {
         if (modelId === 'neironka') {
           console.log(`[AI] Попытка ${answerAttempts + 1}: отправка финального prompt в LM Studio:`);
           console.log(JSON.stringify(answerMessages, null, 2));
-          answer = await askLMStudioWithQueue(() => askLMStudio(answerMessages, 0.7, 1000));
+          answer = await askLMStudio(answerMessages, 0.7, 1000);
           console.log(`[AI] Ответ LM Studio (попытка ${answerAttempts + 1}):`, answer);
         } else {
           const openai = getOpenAI(apiKey);
@@ -729,7 +728,7 @@ export async function POST(request: NextRequest) {
       
       if (modelId === 'neironka') {
         // Для Neironka используем только LM Studio
-        const content = await askLMStudioWithQueue(() => askLMStudio(messages, 0.7, 1000));
+        const content = await askLMStudio(messages, 0.7, 1000);
         aiResponse = { content, role: 'assistant' };
       } else {
         const openai = getOpenAI(apiKey);
