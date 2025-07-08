@@ -189,12 +189,30 @@ export async function POST(request: NextRequest) {
     const prompts = PROMPTS[language as keyof typeof PROMPTS] || PROMPTS.ru;
 
     // --- Новый алгоритм: webSearchEnabled ---
+    let searchMessage = message;
+    if (webSearchEnabled && message.length > 100) {
+      // 1. Сформулировать поисковый запрос через LLM
+      try {
+        const searchQuery = await askLMStudioWithQueue(() =>
+          askLMStudio([
+            { role: 'system', content: 'Ты помощник, который умеет формулировать поисковые запросы для поиска в интернете. Сформулируй короткий и максимально релевантный поисковый запрос по теме, не повторяй исходный текст полностью.' },
+            { role: 'user', content: `Преобразуй следующий текст в короткий поисковый запрос для поиска в интернете:\n\n${message}` }
+          ], 0.5, 50)
+        );
+        if (searchQuery && typeof searchQuery === 'string' && searchQuery.length > 3 && searchQuery.length < 100) {
+          searchMessage = searchQuery.trim();
+        }
+      } catch {
+        // fallback к исходному message
+        searchMessage = message;
+      }
+    }
     if (webSearchEnabled) {
       // 1. Получаем 4 настоящие ссылки через /api/web-search
       const webSearchRes = await fetch(`${request.nextUrl.origin}/api/web-search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: message })
+        body: JSON.stringify({ query: searchMessage })
       });
       const webSearchData = await webSearchRes.json();
       if (!webSearchRes.ok || !webSearchData.results || !Array.isArray(webSearchData.results) || webSearchData.results.length === 0) {
@@ -520,37 +538,124 @@ export async function POST(request: NextRequest) {
       if (webSearchEnabled && (webSearchSummary || webSearchSnippets)) {
         contextBlock = `\n\nВот результаты веб-поиска по вашему запросу:\n${webSearchSummary}\n\n${webSearchSnippets}`;
       }
-      const reasoningMessages = [
-        {
-          role: "system",
-          content: prompts.reasoning + (contextBlock ? '\n' + contextBlock : '')
-        },
-        ...conversationHistory,
-        {
-          role: "user",
-          content: `${prompts.analyzeTask} ${message}` + (contextBlock ? '\n' + contextBlock : '')
+      let reasoning = '';
+      let reasoningError = null;
+      let reasoningPrompt = `${prompts.analyzeTask} ${message}` + (contextBlock ? '\n' + contextBlock : '');
+      // Ограничение длины reasoning-промпта
+      if (reasoningPrompt.length > 8000) {
+        try {
+          let compressPrompt = `Сожми этот текст до 8000 символов, сохранив суть:\n\n${reasoningPrompt}`;
+          if (modelId === 'neironka') {
+            reasoningPrompt = await askLMStudioWithQueue(() => askLMStudio([
+              { role: 'system', content: prompts.system },
+              { role: 'user', content: compressPrompt }
+            ], 0.5, 800));
+          } else {
+            const openai = getOpenAI(apiKey);
+            const completion = await openai.chat.completions.create({
+              model: selectedModel,
+              messages: [
+                { role: 'system', content: prompts.system },
+                { role: 'user', content: compressPrompt }
+              ],
+              max_tokens: 800,
+              temperature: 0.5,
+            });
+            reasoningPrompt = completion.choices[0].message.content || '';
+          }
+          if (reasoningPrompt.length > 8000) {
+            reasoningPrompt = reasoningPrompt.slice(0, 8000);
+          }
+        } catch (err) {
+          reasoningPrompt = reasoningPrompt.slice(0, 8000);
         }
-      ];
-
-      let reasoning: string;
-      
-      if (modelId === 'neironka') {
-        // ВАЖНО: Для LM Studio (modelId === 'neironka') используем только сообщения текущего чата (conversationHistory)
-        // Не передавайте сообщения из других чатов!
-        // conversationHistory формируется на фронте только из currentChat.messages
-        console.log('[AI] Отправка reasoning prompt в LM Studio:', JSON.stringify(reasoningMessages, null, 2));
-        reasoning = await askLMStudioWithQueue(() => askLMStudio(reasoningMessages, 0.7, 800));
-        console.log('[AI] Получен reasoning:', reasoning);
-      } else {
-        const openai = getOpenAI(apiKey);
-        const reasoningCompletion = await openai.chat.completions.create({
-          model: selectedModel,
-          messages: reasoningMessages,
-          max_tokens: 800,
-          temperature: 0.7,
-        });
-        reasoning = reasoningCompletion.choices[0].message.content || '';
-        console.log('[AI] Получен reasoning (OpenAI):', reasoning);
+      }
+      let reasoningAttempts = 0;
+      let reasoning400Error = false;
+      while (reasoningAttempts < 2 && !reasoning) {
+        try {
+          if (modelId === 'neironka') {
+            reasoning = await askLMStudioWithQueue(() => askLMStudio([
+              { role: 'system', content: prompts.reasoning + (contextBlock ? '\n' + contextBlock : '') },
+              ...conversationHistory,
+              { role: 'user', content: reasoningPrompt }
+            ], 0.7, 800));
+          } else {
+            const openai = getOpenAI(apiKey);
+            const reasoningCompletion = await openai.chat.completions.create({
+              model: selectedModel,
+              messages: [
+                { role: 'system', content: prompts.reasoning + (contextBlock ? '\n' + contextBlock : '') },
+                ...conversationHistory,
+                { role: 'user', content: reasoningPrompt }
+              ],
+              max_tokens: 800,
+              temperature: 0.7,
+            });
+            reasoning = reasoningCompletion.choices[0].message.content || '';
+          }
+        } catch (err) {
+          // Если ошибка 400 и reasoningPrompt длинный — разбить на чанки и собрать reasoning по частям
+          if (err instanceof Error && err.message.includes('Status: 400') && reasoningPrompt.length > 4000 && !reasoning400Error) {
+            reasoning400Error = true;
+            const chunkSize = 4000;
+            const chunks = [];
+            for (let i = 0; i < reasoningPrompt.length; i += chunkSize) {
+              chunks.push(reasoningPrompt.slice(i, i + chunkSize));
+            }
+            const chunkReasonings = [];
+            for (const chunk of chunks) {
+              try {
+                let chunkRes = '';
+                if (modelId === 'neironka') {
+                  chunkRes = await askLMStudioWithQueue(() => askLMStudio([
+                    { role: 'system', content: prompts.reasoning },
+                    { role: 'user', content: chunk }
+                  ], 0.7, 800));
+                } else {
+                  const openai = getOpenAI(apiKey);
+                  const completion = await openai.chat.completions.create({
+                    model: selectedModel,
+                    messages: [
+                      { role: 'system', content: prompts.reasoning },
+                      { role: 'user', content: chunk }
+                    ],
+                    max_tokens: 800,
+                    temperature: 0.7,
+                  });
+                  chunkRes = completion.choices[0].message.content || '';
+                }
+                chunkReasonings.push(chunkRes);
+              } catch {}
+            }
+            // Объединить выводы по чанкам
+            try {
+              const mergePrompt = `Объедини эти рассуждения в единый итог:\n${chunkReasonings.map((r, i) => `[Часть ${i+1}]: ${r}`).join('\n')}`;
+              if (modelId === 'neironka') {
+                reasoning = await askLMStudioWithQueue(() => askLMStudio([
+                  { role: 'system', content: prompts.reasoning },
+                  { role: 'user', content: mergePrompt }
+                ], 0.7, 800));
+              } else {
+                const openai = getOpenAI(apiKey);
+                const completion = await openai.chat.completions.create({
+                  model: selectedModel,
+                  messages: [
+                    { role: 'system', content: prompts.reasoning },
+                    { role: 'user', content: mergePrompt }
+                  ],
+                  max_tokens: 800,
+                  temperature: 0.7,
+                });
+                reasoning = completion.choices[0].message.content || '';
+              }
+            } catch {}
+          } else {
+            reasoningError = err instanceof Error ? err.message : String(err);
+            reasoning = '';
+          }
+        }
+        reasoningAttempts++;
       }
 
       // Обрезаем reasoning для prompt финального ответа
@@ -573,13 +678,13 @@ export async function POST(request: NextRequest) {
       ];
 
       let answer: string = '';
-      let attempts = 0;
-      while (attempts < 2 && !answer) {
+      let answerAttempts = 0;
+      while (answerAttempts < 2 && !answer) {
         if (modelId === 'neironka') {
-          console.log(`[AI] Попытка ${attempts + 1}: отправка финального prompt в LM Studio:`);
+          console.log(`[AI] Попытка ${answerAttempts + 1}: отправка финального prompt в LM Studio:`);
           console.log(JSON.stringify(answerMessages, null, 2));
           answer = await askLMStudioWithQueue(() => askLMStudio(answerMessages, 0.7, 1000));
-          console.log(`[AI] Ответ LM Studio (попытка ${attempts + 1}):`, answer);
+          console.log(`[AI] Ответ LM Studio (попытка ${answerAttempts + 1}):`, answer);
         } else {
           const openai = getOpenAI(apiKey);
           const answerCompletion = await openai.chat.completions.create({
@@ -589,9 +694,9 @@ export async function POST(request: NextRequest) {
             temperature: 0.7,
           });
           answer = answerCompletion.choices[0].message.content || '';
-          console.log(`[AI] Ответ OpenAI (попытка ${attempts + 1}):`, answer);
+          console.log(`[AI] Ответ OpenAI (попытка ${answerAttempts + 1}):`, answer);
         }
-        attempts++;
+        answerAttempts++;
       }
       if (!answer) {
         answer = 'AI не смог сгенерировать финальный ответ.';
