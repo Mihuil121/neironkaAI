@@ -5,6 +5,9 @@ import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { tomorrow } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import styles from './MessageRenderer.module.scss';
+import { InlineMath, BlockMath } from 'react-katex';
+import 'katex/dist/katex.min.css';
+import remarkMath from 'remark-math';
 
 interface MessageRendererProps {
   content: string;
@@ -27,6 +30,7 @@ export default function MessageRenderer({ content, className, themeLight }: Mess
   return (
     <div className={`${styles.messageRenderer} ${className || ''}`} style={{ color }}>
       <ReactMarkdown
+        remarkPlugins={[remarkMath]}
         components={{
           // Кастомный рендер для блоков кода
           code({ node, inline, className, children, ...props }: any) {
@@ -62,6 +66,13 @@ export default function MessageRenderer({ content, className, themeLight }: Mess
                 </SyntaxHighlighter>
               </div>
             );
+          },
+          // Добавляем поддержку KaTeX для формул
+          math({ children }) {
+            return <BlockMath>{String(children)}</BlockMath>;
+          },
+          inlineMath({ children }) {
+            return <InlineMath>{String(children)}</InlineMath>;
           }
         }}
       >

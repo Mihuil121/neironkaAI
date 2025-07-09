@@ -1209,9 +1209,9 @@ export default function ChatInterface() {
                 throw new Error(errorText || 'Ошибка извлечения текста');
               }
               if (contentType && contentType.includes('application/json')) {
-                const data = await response.json();
-                // Сразу запускаем обработку большого текста
-                await handleLargeText(data.text);
+              const data = await response.json();
+              // Сразу запускаем обработку большого текста
+              await handleLargeText(data.text);
               } else {
                 const text = await response.text();
                 throw new Error('Сервер вернул не JSON: ' + text);
