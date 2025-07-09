@@ -8,6 +8,7 @@ import styles from './MessageRenderer.module.scss';
 import { InlineMath, BlockMath } from 'react-katex';
 import 'katex/dist/katex.min.css';
 import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 
 interface MessageRendererProps {
   content: string;
@@ -31,6 +32,7 @@ export default function MessageRenderer({ content, className, themeLight }: Mess
     <div className={`${styles.messageRenderer} ${className || ''}`} style={{ color }}>
       <ReactMarkdown
         remarkPlugins={[remarkMath]}
+        rehypePlugins={[rehypeKatex]}
         components={{
           // Кастомный рендер для блоков кода
           code({ node, inline, className, children, ...props }: any) {
@@ -66,13 +68,6 @@ export default function MessageRenderer({ content, className, themeLight }: Mess
                 </SyntaxHighlighter>
               </div>
             );
-          },
-          // Добавляем поддержку KaTeX для формул
-          math({ children }) {
-            return <BlockMath>{String(children)}</BlockMath>;
-          },
-          inlineMath({ children }) {
-            return <InlineMath>{String(children)}</InlineMath>;
           }
         }}
       >
