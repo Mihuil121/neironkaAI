@@ -805,10 +805,10 @@ export default function ChatInterface() {
                   className={`${styles.message} ${msg.role === "user" ? styles.userMessage : styles.aiMessage}`}
                   style={{ alignItems: 'flex-start' }}
                 >
-                  {/* Иконка только для бота, слева */}
+                  {/* Иконка только для бота, сверху */}
                   {msg.role === "assistant" && (
-                    <div className={styles.messageAvatar} style={{ flexShrink: 0, marginRight: 8 }}>
-                      <Image src={Ai} alt="AI" width={32} height={32} style={{ borderRadius: '50%' }} />
+                    <div className={styles.messageAvatar}>
+                      <Image src={Ai} alt="AI" width={40} height={40} style={{ borderRadius: '50%' }} />
                     </div>
                   )}
                   <div className={styles.messageContent}>
@@ -1031,11 +1031,11 @@ export default function ChatInterface() {
 
             {isThinking || isLoading ? (
               <div className={`${styles.message} ${styles.aiMessage}`}>
+                <div className={styles.messageAvatar}>
+                  <Image src={Ai} alt="AI" width={40} height={40} style={{ borderRadius: '50%' }} />
+                </div>
                 <div className={styles.messageContent}>
                   <ProgressStage isThinking={isThinking} chunkProgress={chunkProgress} isLoading={isLoading} reasoningEnabled={currentChat?.reasoningEnabled} webSearchEnabled={currentChat?.webSearchEnabled} />
-                </div>
-                <div className={styles.messageAvatar}>
-                  <Image src={Ai} alt="AI" width={32} height={32} style={{ borderRadius: '50%' }} />
                 </div>
               </div>
             ) : null}
