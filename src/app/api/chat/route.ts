@@ -79,9 +79,11 @@ async function askLMStudio(messages: any[], temperature: number = 0.7, maxTokens
   } catch (error: any) {
     console.error('Ошибка LM Studio API:', error);
     if (error.name === 'AbortError') {
-      return 'Превышено время ожидания ответа от модели. Попробуйте еще раз.';
+      // Возвращаем специальный маркер ошибки для дальнейшей обработки
+      return '__LMSTUDIO_CONNECTION_ERROR__';
     }
-    return `Ошибка при обращении к модели. Проверьте, что LM Studio доступен по адресу ${LMSTUDIO_API_URL}`;
+    // Возвращаем специальный маркер ошибки для дальнейшей обработки
+    return '__LMSTUDIO_CONNECTION_ERROR__';
   }
 }
 
@@ -147,7 +149,7 @@ function isGreetingWithAction(msg: string) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { message, conversationHistory = [], modelId = 'neironka', reasoningEnabled = false, language = 'ru', webSearchEnabled = false, apiKey } = await request.json();
+    const { message, conversationHistory = [], modelId = 'neironka', reasoningEnabled = false, language = 'ru', webSearchEnabled = false, apiKey, fileContent, fileName } = await request.json();
 
     // Получаем IP пользователя для защиты от злоупотреблений
     const userIP = request.headers.get('x-forwarded-for') || 
@@ -275,6 +277,9 @@ export async function POST(request: NextRequest) {
                 { role: 'system', content: prompts.system },
                 { role: 'user', content: analysisPrompt }
               ], 0.7, 600);
+              if (chunkAnalysis === '__LMSTUDIO_CONNECTION_ERROR__') {
+                return NextResponse.json({ error: 'У вас нестабильное соединение с моделью. Попробуйте позже.' }, { status: 503 });
+              }
             } else {
               const openai = getOpenAI(apiKey);
               const completion = await openai.chat.completions.create({
@@ -302,6 +307,9 @@ export async function POST(request: NextRequest) {
               { role: 'system', content: prompts.system },
               { role: 'user', content: mergePrompt }
             ], 0.7, 800);
+            if (siteAnalysis === '__LMSTUDIO_CONNECTION_ERROR__') {
+              return NextResponse.json({ error: 'У вас нестабильное соединение с моделью. Попробуйте позже.' }, { status: 503 });
+            }
           } else {
             const openai = getOpenAI(apiKey);
             const completion = await openai.chat.completions.create({
@@ -332,6 +340,9 @@ export async function POST(request: NextRequest) {
             { role: 'system', content: prompts.system },
             { role: 'user', content: finalPrompt }
           ], 0.7, 1000);
+          if (sitesAnswer === '__LMSTUDIO_CONNECTION_ERROR__') {
+            return NextResponse.json({ error: 'У вас нестабильное соединение с моделью. Попробуйте позже.' }, { status: 503 });
+          }
         } else {
           const openai = getOpenAI(apiKey);
           const completion = await openai.chat.completions.create({
@@ -352,6 +363,9 @@ export async function POST(request: NextRequest) {
             { role: 'system', content: prompts.reasoning },
             { role: 'user', content: reasoningPrompt }
           ], 0.7, 1000);
+          if (reasoning === '__LMSTUDIO_CONNECTION_ERROR__') {
+            return NextResponse.json({ error: 'У вас нестабильное соединение с моделью. Попробуйте позже.' }, { status: 503 });
+          }
         } else {
           const openai = getOpenAI(apiKey);
           const completion = await openai.chat.completions.create({
@@ -373,6 +387,9 @@ export async function POST(request: NextRequest) {
             { role: 'system', content: prompts.system },
             { role: 'user', content: finalPrompt }
           ], 0.7, 1000);
+          if (answer === '__LMSTUDIO_CONNECTION_ERROR__') {
+            return NextResponse.json({ error: 'У вас нестабильное соединение с моделью. Попробуйте позже.' }, { status: 503 });
+          }
         } else {
           const openai = getOpenAI(apiKey);
           const completion = await openai.chat.completions.create({
@@ -393,6 +410,16 @@ export async function POST(request: NextRequest) {
         role: 'assistant',
         searchSources: analyses.map(a => ({ title: a.title, url: a.url }))
       });
+    }
+
+    // --- Формируем промпт для LLM с учётом файла ---
+    let prompt = '';
+    if (fileContent && fileName) {
+      prompt = `Пользователь хочет: ${message}\n\nСодержимое файла \"${fileName}\":\n${fileContent}`;
+    } else if (fileContent) {
+      prompt = `Пользователь хочет: ${message}\n\nСодержимое файла:\n${fileContent}`;
+    } else {
+      prompt = message;
     }
 
     // --- Старое поведение (без webSearchEnabled) ---
@@ -559,6 +586,9 @@ export async function POST(request: NextRequest) {
               { role: 'system', content: prompts.system },
               { role: 'user', content: compressPrompt }
             ], 0.5, 800);
+            if (reasoningPrompt === '__LMSTUDIO_CONNECTION_ERROR__') {
+              return NextResponse.json({ error: 'У вас нестабильное соединение с моделью. Попробуйте позже.' }, { status: 503 });
+            }
           } else {
             const openai = getOpenAI(apiKey);
             const completion = await openai.chat.completions.create({
@@ -589,6 +619,9 @@ export async function POST(request: NextRequest) {
               ...conversationHistory,
               { role: 'user', content: reasoningPrompt }
             ], 0.7, 800);
+            if (reasoning === '__LMSTUDIO_CONNECTION_ERROR__') {
+              return NextResponse.json({ error: 'У вас нестабильное соединение с моделью. Попробуйте позже.' }, { status: 503 });
+            }
           } else {
             const openai = getOpenAI(apiKey);
             const reasoningCompletion = await openai.chat.completions.create({
@@ -621,6 +654,9 @@ export async function POST(request: NextRequest) {
                     { role: 'system', content: prompts.reasoning },
                     { role: 'user', content: chunk }
                   ], 0.7, 800);
+                  if (chunkRes === '__LMSTUDIO_CONNECTION_ERROR__') {
+                    return NextResponse.json({ error: 'У вас нестабильное соединение с моделью. Попробуйте позже.' }, { status: 503 });
+                  }
                 } else {
                   const openai = getOpenAI(apiKey);
                   const completion = await openai.chat.completions.create({
@@ -645,6 +681,9 @@ export async function POST(request: NextRequest) {
                   { role: 'system', content: prompts.reasoning },
                   { role: 'user', content: mergePrompt }
                 ], 0.7, 800);
+                if (reasoning === '__LMSTUDIO_CONNECTION_ERROR__') {
+                  return NextResponse.json({ error: 'У вас нестабильное соединение с моделью. Попробуйте позже.' }, { status: 503 });
+                }
               } else {
                 const openai = getOpenAI(apiKey);
                 const completion = await openai.chat.completions.create({
@@ -693,6 +732,9 @@ export async function POST(request: NextRequest) {
           console.log(`[AI] Попытка ${answerAttempts + 1}: отправка финального prompt в LM Studio:`);
           console.log(JSON.stringify(answerMessages, null, 2));
           answer = await askLMStudio(answerMessages, 0.7, 1000);
+          if (answer === '__LMSTUDIO_CONNECTION_ERROR__') {
+            return NextResponse.json({ error: 'У вас нестабильное соединение с моделью. Попробуйте позже.' }, { status: 503 });
+          }
           console.log(`[AI] Ответ LM Studio (попытка ${answerAttempts + 1}):`, answer);
         } else {
           const openai = getOpenAI(apiKey);
@@ -730,7 +772,7 @@ export async function POST(request: NextRequest) {
         ...conversationHistory,
         {
           role: "user",
-          content: message
+          content: prompt
         }
       ];
 
@@ -739,6 +781,9 @@ export async function POST(request: NextRequest) {
       if (modelId === 'neironka') {
         // Для Neironka используем только LM Studio
         const content = await askLMStudio(messages, 0.7, 1000);
+        if (content === '__LMSTUDIO_CONNECTION_ERROR__') {
+          return NextResponse.json({ error: 'У вас нестабильное соединение с моделью. Попробуйте позже.' }, { status: 503 });
+        }
         aiResponse = { content, role: 'assistant' };
       } else {
         const openai = getOpenAI(apiKey);

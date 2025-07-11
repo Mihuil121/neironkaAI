@@ -1992,3 +1992,40 @@
   0%, 80%, 100% { opacity: 0.7; transform: scale(1); }
   40% { opacity: 1; transform: scale(1.2); }
 }
+
+.fileMessage {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(90deg, #ffe082 60%, #ffd54f 100%);
+  color: #23232a;
+  border-radius: 10px;
+  padding: 6px 14px;
+  font-size: 0.97em;
+  font-weight: 600;
+  margin-bottom: 4px;
+  max-width: 260px;
+  box-shadow: 0 2px 8px rgba(255, 193, 7, 0.13);
+  word-break: break-all;
+}
+.fileMessageIcon {
+  font-size: 1.1em;
+  color: #fbc02d;
+}
+.fileName {
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+}
+.fileType {
+  font-size: 0.93em;
+  color: #b08500;
+  margin-left: 2px;
+}
+.fileSize {
+  font-size: 0.93em;
+  color: #b08500;
+  margin-left: 2px;
+}

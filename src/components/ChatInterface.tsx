@@ -374,9 +374,9 @@ export default function ChatInterface() {
       // 3. Собрать единое сообщение
       let finalMessage = '';
       if (message.trim() && fileContent.trim()) {
-        finalMessage = `Пользователь хочет: ${message.trim()}\n\n**Содержимое файла \"${uploadedFile.name}\"**:\n\n\n${fileContent.trim()}\n\n\n`;
+        finalMessage = message.trim();
       } else if (fileContent.trim()) {
-        finalMessage = `**Содержимое файла \"${uploadedFile.name}\"**:\n\n\n${fileContent.trim()}\n\n\n`;
+        finalMessage = 'Поясни содержимое файла';
       } else if (message.trim()) {
         finalMessage = message.trim();
       } else {
@@ -384,7 +384,11 @@ export default function ChatInterface() {
       }
       setIsThinking(true);
       try {
-        await sendMessage(finalMessage, language, apiKey);
+        await sendMessage(finalMessage, language, apiKey, {
+          fileName: uploadedFile.name,
+          fileType: uploadedFile.type,
+          fileSize: uploadedFile.size
+        });
       } finally {
         setIsThinking(false);
       }
@@ -583,6 +587,15 @@ export default function ChatInterface() {
       setIsThinking(false);
     }
   };
+
+  function shortenFileName(name?: string) {
+    if (!name) return '';
+    const dotIdx = name.lastIndexOf('.');
+    const ext = dotIdx !== -1 ? name.slice(dotIdx) : '';
+    const base = dotIdx !== -1 ? name.slice(0, dotIdx) : name;
+    if (base.length <= 6) return name;
+    return base.slice(0, 2) + '...' + ext;
+  }
 
   if (!isHydrated) {
     return null; // или можно показать лоадер
@@ -921,6 +934,14 @@ export default function ChatInterface() {
                     ) : (
                       <>
                         <div className={styles.messageText}>
+                          {msg.role === 'user' && (msg.fileName || msg.fileSize || msg.fileType) && (
+                            <div className={styles.fileMessage}>
+                              <FiUpload className={styles.fileMessageIcon} />
+                              <span className={styles.fileName}>{shortenFileName(msg.fileName)}</span>
+                              {msg.fileType && <span className={styles.fileType}>{msg.fileType}</span>}
+                              {msg.fileSize && <span className={styles.fileSize}>{(msg.fileSize / 1024).toFixed(2)} KB</span>}
+                            </div>
+                          )}
                           <MessageRenderer content={msg.role === 'assistant' && msg.answer ? msg.answer : msg.content} themeLight={chatThemeLight} role={msg.role} />
                         </div>
                         {/* Кнопки ссылок для обычных сообщений AI */}
@@ -1209,9 +1230,10 @@ export default function ChatInterface() {
                 throw new Error(errorText || 'Ошибка извлечения текста');
               }
               if (contentType && contentType.includes('application/json')) {
-              const data = await response.json();
-              // Сразу запускаем обработку большого текста
-              await handleLargeText(data.text);
+                const data = await response.json();
+                // Вместо handleLargeText — создаём виртуальный файл
+                const siteFile = new File([data.text], "site.txt", { type: "text/plain" });
+                setUploadedFile(siteFile);
               } else {
                 const text = await response.text();
                 throw new Error('Сервер вернул не JSON: ' + text);

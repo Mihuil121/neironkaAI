@@ -13,6 +13,9 @@ export interface Message {
     url: string;
     favicon?: string;
   }>; // источники веб-поиска
+  fileName?: string;
+  fileType?: string;
+  fileSize?: number;
 }
 
 export interface Chat {
@@ -33,7 +36,7 @@ interface ChatState {
   createChat: (title: string, modelId?: string) => void;
   selectChat: (chatId: string) => void;
   deleteChat: (chatId: string) => void;
-  sendMessage: (message: string, language?: string, apiKey?: string) => Promise<void>;
+  sendMessage: (message: string, language?: string, apiKey?: string, fileMeta?: { fileName?: string, fileType?: string, fileSize?: number }) => Promise<void>;
   clearError: () => void;
   toggleReasoning: (chatId: string) => void;
   toggleWebSearch: (chatId: string) => void;
@@ -82,7 +85,7 @@ export const useChatStore = create<ChatState>()(
         }));
       },
 
-      sendMessage: async (message: string, language: string = 'ru', apiKey?: string) => {
+      sendMessage: async (message: string, language: string = 'ru', apiKey?: string, fileMeta?: { fileName?: string, fileType?: string, fileSize?: number }) => {
         let state = get();
         let currentChat = state.chats.find((chat) => chat.id === state.currentChatId);
 
@@ -129,6 +132,7 @@ export const useChatStore = create<ChatState>()(
           role: 'user',
           content: message,
           timestamp: new Date(),
+          ...(fileMeta || {})
         };
 
         set((state) => ({
