@@ -4,6 +4,7 @@ import React, { useState, useRef } from 'react';
 import { FiUpload, FiImage, FiFile, FiYoutube, FiX } from 'react-icons/fi';
 import styles from './UploadDropdown.module.scss';
 import { useTranslation } from '@/lib/translations';
+import { useChatStore } from '@/store/useChatStore';
 
 interface UploadDropdownProps {
   isOpen: boolean;
@@ -30,6 +31,7 @@ export default function UploadDropdown({
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [siteUrl, setSiteUrl] = useState('');
   const { t } = useTranslation();
+  const { chatThemeLight } = useChatStore();
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -89,9 +91,44 @@ export default function UploadDropdown({
 
   if (!isOpen) return null;
 
+  // Логика для фона и цвета
+  const overlayStyle = {
+    background: chatThemeLight ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.5)'
+  };
+  const dropdownStyle = {
+    background: chatThemeLight ? '#fff' : '#1a1a1e',
+    color: chatThemeLight ? '#23232a' : '#fff',
+    border: chatThemeLight ? '1px solid #e5e7eb' : '1px solid #23232a',
+    boxShadow: chatThemeLight ? '0 8px 32px rgba(0,0,0,0.08)' : '0 8px 32px rgba(0,0,0,0.3)'
+  };
+  const optionBtnStyle = {
+    background: chatThemeLight ? '#f7f7fa' : '#23232a',
+    color: '#23232a',
+    border: chatThemeLight ? '1px solid #e5e7eb' : '1px solid #23232a',
+  };
+  const submitBtnStyle = {
+    background: chatThemeLight ? 'linear-gradient(135deg, #f59e42 0%, #ff9800 100%)' : 'linear-gradient(135deg, #f59e42 0%, #ff9800 100%)',
+    color: '#23232a',
+  };
+  const cancelBtnStyle = {
+    background: chatThemeLight ? '#e5e7eb' : '#374151',
+    color: '#23232a',
+  };
+
+  // Функция для определения стиля кнопки с учётом disabled
+  const getOptionBtnStyle = (disabled = false) => ({
+    background: chatThemeLight ? '#fff' : '#23232a',
+    color: disabled ? '#bbb' : '#23232a',
+    border: chatThemeLight ? '1px solid #e5e7eb' : '1px solid #23232a',
+    opacity: 1,
+    cursor: disabled ? 'not-allowed' : 'pointer',
+  });
+  // Функция для цвета иконки
+  const getIconColor = (disabled = false) => (disabled ? '#bbb' : '#f59e42');
+
   return (
-    <div className={styles.overlay} onClick={onClose}>
-      <div className={styles.dropdown} onClick={(e) => e.stopPropagation()}>
+    <div className={styles.overlay} style={overlayStyle} onClick={onClose}>
+      <div className={styles.dropdown} style={dropdownStyle} onClick={(e) => e.stopPropagation()}>
         <div className={styles.header}>
           <h3>{t('uploadContent')}</h3>
           <button className={styles.closeBtn} onClick={onClose}>
@@ -104,11 +141,12 @@ export default function UploadDropdown({
           <div className={styles.option}>
             <button
               className={styles.optionBtn}
+              style={getOptionBtnStyle(false)}
               onClick={() => fileInputRef.current?.click()}
             >
-              <FiFile className={styles.optionIcon} />
+              <FiFile className={styles.optionIcon} style={{ color: getIconColor(false) }} />
               <div className={styles.optionText}>
-                <span className={styles.optionTitle}>{t('file')}</span>
+                <span className={styles.optionTitle} style={{ color: '#23232a' }}>{t('file')}</span>
                 <span className={styles.optionDesc}>{t('fileDesc')}</span>
               </div>
             </button>
@@ -125,11 +163,13 @@ export default function UploadDropdown({
           <div className={styles.option}>
             <button
               className={styles.optionBtn}
+              style={getOptionBtnStyle(false)}
               onClick={() => imageInputRef.current?.click()}
             >
+              
               <FiImage className={styles.optionIcon} />
               <div className={styles.optionText}>
-                <span className={styles.optionTitle}>{t('image')}</span>
+                <span className={styles.optionTitle} style={{ color: '#23232a' }}>{t('image')}</span>
                 <span className={styles.optionDesc}>{t('imageDesc')}</span>
               </div>
             </button>
@@ -147,11 +187,12 @@ export default function UploadDropdown({
             {!showYouTubeInput ? (
               <button
                 className={styles.optionBtn}
+                style={optionBtnStyle}
                 onClick={() => setShowYouTubeInput(true)}
               >
                 <FiYoutube className={styles.optionIcon} />
                 <div className={styles.optionText}>
-                  <span className={styles.optionTitle}>{t('youtubeVideo')}</span>
+                  <span className={styles.optionTitle} style={{ color: '#23232a' }}>{t('youtubeVideo')}</span>
                   <span className={styles.optionDesc}>{t('youtubeDesc')}</span>
                 </div>
               </button>
@@ -166,7 +207,9 @@ export default function UploadDropdown({
                     className={styles.urlInput}
                     autoFocus
                   />
-                  <button type="submit" className={styles.submitBtn} disabled={isLoading}>
+                  <button type="submit" className={styles.submitBtn} disabled={isLoading}
+                    style={submitBtnStyle}
+                  >
                     {isLoading ? t('loading') : t('upload')}
                   </button>
                 </div>
@@ -174,6 +217,7 @@ export default function UploadDropdown({
                   type="button"
                   onClick={() => setShowYouTubeInput(false)}
                   className={styles.cancelBtn}
+                  style={cancelBtnStyle}
                 >
                   {t('cancel')}
                 </button>
@@ -186,11 +230,12 @@ export default function UploadDropdown({
             {!showUrlInput ? (
               <button
                 className={styles.optionBtn}
+                style={optionBtnStyle}
                 onClick={() => setShowUrlInput(true)}
               >
                 <FiUpload className={styles.optionIcon} />
                 <div className={styles.optionText}>
-                  <span className={styles.optionTitle}>{t('siteUrl')}</span>
+                  <span className={styles.optionTitle} style={{ color: '#23232a' }}>{t('siteUrl')}</span>
                   <span className={styles.optionDesc}>{t('siteDesc')}</span>
                 </div>
               </button>
@@ -205,7 +250,9 @@ export default function UploadDropdown({
                     className={styles.urlInput}
                     autoFocus
                   />
-                  <button type="submit" className={styles.submitBtn} disabled={isLoading}>
+                  <button type="submit" className={styles.submitBtn} disabled={isLoading}
+                    style={submitBtnStyle}
+                  >
                     {isLoading ? t('loading') : t('upload')}
                   </button>
                 </div>
@@ -213,6 +260,7 @@ export default function UploadDropdown({
                   type="button"
                   onClick={() => setShowUrlInput(false)}
                   className={styles.cancelBtn}
+                  style={cancelBtnStyle}
                 >
                   {t('cancel')}
                 </button>

@@ -12,8 +12,43 @@
   animation: fadeIn 0.2s ease-out;
 }
 
+.overlayLight {
+  background: rgba(255, 255, 255, 0.7);
+}
+.overlayDark {
+  background: rgba(0, 0, 0, 0.5);
+}
+
 .dropdown {
   background: #1a1a1e;
+  border-radius: 16px;
+  padding: 0;
+  max-width: 400px;
+  width: 90%;
+  max-height: 80vh;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.3s ease-out;
+  border: 1px solid #23232a;
+}
+
+.dropdownLight {
+  background: #fff;
+  color: #23232a;
+  border-radius: 16px;
+  padding: 0;
+  max-width: 400px;
+  width: 90%;
+  max-height: 80vh;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  animation: slideUp 0.3s ease-out;
+  border: 1px solid #e5e7eb;
+}
+
+.dropdownDark {
+  background: #1a1a1e;
+  color: #fff;
   border-radius: 16px;
   padding: 0;
   max-width: 400px;
