@@ -16,6 +16,7 @@ export interface Message {
   fileName?: string;
   fileType?: string;
   fileSize?: number;
+  fileContent?: string;
 }
 
 export interface Chat {
@@ -36,7 +37,7 @@ interface ChatState {
   createChat: (title: string, modelId?: string) => void;
   selectChat: (chatId: string) => void;
   deleteChat: (chatId: string) => void;
-  sendMessage: (message: string, language?: string, apiKey?: string, fileMeta?: { fileName?: string, fileType?: string, fileSize?: number }) => Promise<void>;
+  sendMessage: (message: string, language?: string, apiKey?: string, fileMeta?: { fileName?: string, fileType?: string, fileSize?: number, fileContent?: string }) => Promise<void>;
   clearError: () => void;
   toggleReasoning: (chatId: string) => void;
   toggleWebSearch: (chatId: string) => void;
@@ -85,7 +86,7 @@ export const useChatStore = create<ChatState>()(
         }));
       },
 
-      sendMessage: async (message: string, language: string = 'ru', apiKey?: string, fileMeta?: { fileName?: string, fileType?: string, fileSize?: number }) => {
+      sendMessage: async (message: string, language: string = 'ru', apiKey?: string, fileMeta?: { fileName?: string, fileType?: string, fileSize?: number, fileContent?: string }) => {
         let state = get();
         let currentChat = state.chats.find((chat) => chat.id === state.currentChatId);
 
@@ -164,6 +165,8 @@ export const useChatStore = create<ChatState>()(
               webSearchEnabled: currentChat.webSearchEnabled,
               language,
               apiKey,
+              fileContent: fileMeta?.fileContent,
+              fileName: fileMeta?.fileName,
             }),
           });
 

@@ -26,25 +26,25 @@ export async function POST(request: NextRequest) {
     if (modelId === 'neironka') {
       // LM Studio
       try {
-        const response = await fetch(LMSTUDIO_API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: 'local-model',
-            messages: [
-              { role: 'system', content: PROMPTS[language as keyof typeof PROMPTS] || PROMPTS.ru },
-              { role: 'user', content: text },
-            ],
-            temperature: 0.7,
-            max_tokens: 1000,
-            stream: false,
-          }),
-        });
+      const response = await fetch(LMSTUDIO_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'local-model',
+          messages: [
+            { role: 'system', content: PROMPTS[language as keyof typeof PROMPTS] || PROMPTS.ru },
+            { role: 'user', content: text },
+          ],
+          temperature: 0.7,
+          max_tokens: 1000,
+          stream: false,
+        }),
+      });
         if (!response.ok) {
           throw new Error('LM Studio connection error');
         }
-        const data = await response.json();
-        result = data.choices?.[0]?.message?.content || '';
+      const data = await response.json();
+      result = data.choices?.[0]?.message?.content || '';
       } catch (err) {
         return NextResponse.json({ error: 'У вас нестабильное соединение с моделью. Попробуйте позже.' }, { status: 503 });
       }

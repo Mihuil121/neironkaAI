@@ -387,7 +387,8 @@ export default function ChatInterface() {
         await sendMessage(finalMessage, language, apiKey, {
           fileName: uploadedFile.name,
           fileType: uploadedFile.type,
-          fileSize: uploadedFile.size
+          fileSize: uploadedFile.size,
+          fileContent: fileContent // добавляем содержимое файла
         });
       } finally {
         setIsThinking(false);
@@ -1230,7 +1231,7 @@ export default function ChatInterface() {
                 throw new Error(errorText || 'Ошибка извлечения текста');
               }
               if (contentType && contentType.includes('application/json')) {
-                const data = await response.json();
+              const data = await response.json();
                 // Вместо handleLargeText — создаём виртуальный файл
                 const siteFile = new File([data.text], "site.txt", { type: "text/plain" });
                 setUploadedFile(siteFile);
