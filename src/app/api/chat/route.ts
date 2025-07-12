@@ -98,7 +98,7 @@ const MODEL_MAP: { [key: string]: string } = {
 // Промпты на разных языках
 const PROMPTS = {
   ru: {
-    system: "Ты дружелюбный и полезный AI помощник. Отвечай на русском языке, будь вежливым и старайся давать полезные ответы. Если в ответе есть код, обязательно используй Markdown форматирование с указанием языка программирования. Например: ```javascript для JavaScript, ```python для Python, ```html для HTML и т.д. Всегда форматируй заголовки с помощью #, жирный текст с **, курсив с *, списки с - или 1., и код с ` для встроенного кода.",
+    system: `Ты дружелюбный и полезный AI помощник. Отвечай на русском языке, будь вежливым и старайся давать полезные ответы. Если в ответе есть код, обязательно используй Markdown форматирование с указанием языка программирования. Например: \`\`\`javascript для JavaScript, \`\`\`python для Python, \`\`\`html для HTML и т.д. Всегда форматируй заголовки с помощью #, жирный текст с **, курсив с *, списки с - или 1., и код с \` для встроенного кода.\n\nЕсли в ответе есть математические формулы, обязательно оформляй их в формате LaTeX: для встроенных формул используй $...$, для блоковых формул используй $$...$$. Не используй другие способы оформления формул.`,
     reasoning: `Ты — эксперт-аналитик. Проведи внутренний анализ запроса пользователя. Этот анализ НЕ будет показан пользователю — он используется только для формирования финального ответа. Анализ должен включать:
 1. **Глубокое понимание задачи:** Сформулируй суть запроса своими словами
 2. **Логические рассуждения:** Разбей проблему на шаги, объясни свою логику
@@ -128,7 +128,7 @@ const PROMPTS = {
 Формат ответа: текст, структурированный по смыслу, но без явных заголовков этапов.`,
   },
   en: {
-    system: "You are a friendly and helpful AI assistant. Respond in English, be polite and try to give useful answers. If your response contains code, always use Markdown formatting with the programming language specified. For example: ```javascript for JavaScript, ```python for Python, ```html for HTML, etc. Always format headings with #, bold text with **, italic text with *, lists with - or 1., and inline code with `.",
+    system: `You are a friendly and helpful AI assistant. Respond in English, be polite and try to give useful answers. If your response contains code, always use Markdown formatting with the programming language specified. For example: \`\`\`javascript for JavaScript, \`\`\`python for Python, \`\`\`html for HTML, etc. Always format headings with #, bold text with **, italic text with *, lists with - or 1., and inline code with \`.\n\nIf your response contains mathematical formulas, always format them in LaTeX: use $...$ for inline formulas and $$...$$ for block formulas. Do not use any other formatting for formulas.`,
     reasoning: "You are an expert at analyzing tasks. Break down the user's task into logical steps and explain your thought process. Respond in English. If your analysis contains code, use Markdown formatting.",
     reasoningWithAnalysis: "You are a friendly and helpful AI assistant. Respond in English, be polite and try to give useful answers. Use the results of your analysis to form your response. If your response contains code, always use Markdown formatting with the programming language specified.",
     analyzeTask: "Analyze this task and explain how you will solve it:",

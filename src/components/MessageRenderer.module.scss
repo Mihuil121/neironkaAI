@@ -284,6 +284,18 @@
   }
 }
 
+.katex-display {
+  background: #23232a;
+  border-radius: 8px;
+  padding: 16px 24px;
+  margin: 16px 0;
+  font-size: 1.18em;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+  color: #f8f8fa;
+  overflow-x: auto;
+  text-align: center;
+}
+
 .messageRenderer ol,
 .messageRenderer ul {
   margin-left: 1.2em;
