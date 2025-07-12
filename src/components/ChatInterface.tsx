@@ -623,6 +623,7 @@ export default function ChatInterface() {
             </button>
           </div>
           <div className={styles.chatsList}>
+            <div className={styles.chatsHeader}>Чаты</div>
             {chats.length === 0 && (
               <div className={styles.emptyChats}><FiMessageSquare /> {t('noChats')}</div>
             )}
@@ -636,7 +637,9 @@ export default function ChatInterface() {
                 }
                 onClick={() => selectChat(chat.id)}
               >
-                <span className={styles.chatTitle}>
+                <span className={styles.chatTitle}
+                  style={{ color: chatThemeLight ? '#23232a' : '#fff' }}
+                >
                   <FiMessageSquare style={{marginRight: 6}} />
                   {editingChatId === chat.id ? (
                     <input
@@ -746,6 +749,7 @@ export default function ChatInterface() {
                     </button>
                   </div>
                   <div className={styles.chatsList}>
+                    <div className={styles.chatsHeader}>Чаты</div>
                     {chats.length === 0 && (
                       <div className={styles.emptyChats}><FiMessageSquare /> {t('noChats')}</div>
                     )}
@@ -755,7 +759,10 @@ export default function ChatInterface() {
                         className={chat.id === currentChatId ? styles.chatItemActive : styles.chatItem}
                         onClick={() => { selectChat(chat.id); setMobileMenuOpen(false); }}
                       >
-                        <span className={styles.chatTitle}><FiMessageSquare style={{marginRight: 6}} />{chat.title}</span>
+                        <span className={styles.chatTitle}
+                          style={{ color: chatThemeLight ? '#23232a' : '#fff' }}
+                        >
+                          <FiMessageSquare style={{marginRight: 6}} />{chat.title}</span>
                         <div className={styles.chatActions}>
                           <button
                             className={styles.shareChatBtn}
