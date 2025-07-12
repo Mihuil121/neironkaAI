@@ -623,7 +623,7 @@ export default function ChatInterface() {
             </button>
           </div>
           <div className={styles.chatsList}>
-            <div className={styles.chatsHeader}>Чаты</div>
+            <div className={styles.chatsHistoryTitle}>История чатов</div>
             {chats.length === 0 && (
               <div className={styles.emptyChats}><FiMessageSquare /> {t('noChats')}</div>
             )}
@@ -749,7 +749,7 @@ export default function ChatInterface() {
                     </button>
                   </div>
                   <div className={styles.chatsList}>
-                    <div className={styles.chatsHeader}>Чаты</div>
+                    <div className={styles.chatsHistoryTitle}>История чатов</div>
                     {chats.length === 0 && (
                       <div className={styles.emptyChats}><FiMessageSquare /> {t('noChats')}</div>
                     )}
