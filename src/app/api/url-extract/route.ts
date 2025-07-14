@@ -1,8 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { parse } from 'node-html-parser';
+import { Readability } from '@mozilla/readability';
+import * as cheerio from 'cheerio';
+import { JSDOM } from 'jsdom';
+
+// In-memory cache (url -> { text, expires })
+const cache: Record<string, { text: string, expires: number }> = {};
 
 async function improvedScraper(url: string) {
+    // Кэш: 3 минуты
+    const now = Date.now();
+    if (cache[url] && cache[url].expires > now) {
+        return cache[url].text;
+    }
+    let controller: AbortController | null = null;
     try {
+        controller = new AbortController();
+        const timeout = setTimeout(() => controller!.abort(), 7000); // 7 секунд таймаут
         const response = await fetch(url, {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -11,30 +24,40 @@ async function improvedScraper(url: string) {
                 'Accept-Encoding': 'gzip, deflate, br',
                 'Connection': 'keep-alive',
                 'Upgrade-Insecure-Requests': '1'
-            }
+            },
+            signal: controller.signal
         });
+        clearTimeout(timeout);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         const html = await response.text();
-        const root = parse(html);
-        // Удаляем все <script>, <style>, <noscript>, <template>
-        ['script', 'style', 'noscript', 'template'].forEach(tag => {
-          root.querySelectorAll(tag).forEach(el => el.remove());
-        });
-        // Удаляем скрытые элементы (display:none, visibility:hidden)
-        root.querySelectorAll('[style*="display:none"], [style*="visibility:hidden"]').forEach(el => el.remove());
+        // 1. Попытка через Readability.js (лучшее качество)
+        try {
+            const dom = new JSDOM(html, { url });
+            const reader = new Readability(dom.window.document);
+            const article = reader.parse();
+            if (article && article.textContent && article.textContent.length > 500) {
+                cache[url] = { text: article.textContent, expires: now + 3 * 60 * 1000 };
+                return article.textContent;
+            }
+        } catch {}
+        // 2. Попытка через Cheerio (быстро)
+        const $ = cheerio.load(html);
+        // Удаляем мусор
+        $('script, style, noscript, template').remove();
+        $('[style*="display:none"], [style*="visibility:hidden"]').remove();
+        // Стратегии поиска основного текста
         const strategies = [
-            () => root.querySelector('main')?.text,
-            () => root.querySelector('article')?.text,
-            () => root.querySelector('.article-content')?.text,
-            () => root.querySelector('#content')?.text,
-            () => root.querySelector('.content')?.text,
+            () => $('main').text(),
+            () => $('article').text(),
+            () => $('.article-content').text(),
+            () => $('#content').text(),
+            () => $('.content').text(),
             () => {
-                const divs = root.querySelectorAll('div');
                 let maxText = '';
-                divs.forEach(div => {
-                    const text = div.text.trim();
+                $('div').each((_, el) => {
+                    const text = $(el).text().trim();
                     if (text.length > maxText.length && text.length > 1000) {
                         maxText = text;
                     }
@@ -42,24 +65,22 @@ async function improvedScraper(url: string) {
                 return maxText;
             },
             () => {
-                const body = root.querySelector('body');
-                if (body) {
-                    let text = body.text;
-                    text = text.replace(/Главная[\s\S]*?Контакты/, '');
-                    text = text.replace(/©[\s\S]*?права защищены/, '');
-                    return text;
-                }
-                return null;
+                let text = $('body').text();
+                text = text.replace(/Главная[\s\S]*?Контакты/, '');
+                text = text.replace(/©[\s\S]*?права защищены/, '');
+                return text;
             }
         ];
         for (let i = 0; i < strategies.length; i++) {
             const result = strategies[i]();
             if (result && result.length > 500) {
+                cache[url] = { text: result, expires: now + 3 * 60 * 1000 };
                 return result;
             }
         }
         return null;
     } catch (error: any) {
+        if (controller) controller.abort();
         return null;
     }
 }

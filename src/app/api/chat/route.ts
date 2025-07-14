@@ -219,7 +219,7 @@ export async function POST(request: NextRequest) {
       }
     }
     if (webSearchEnabled) {
-      // 1. Получаем 4 настоящие ссылки через /api/web-search
+      // 1. Получаем только 2 лучших сайта через /api/web-search
       const webSearchRes = await fetch(`${request.nextUrl.origin}/api/web-search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -229,18 +229,11 @@ export async function POST(request: NextRequest) {
       if (!webSearchRes.ok || !webSearchData.results || !Array.isArray(webSearchData.results) || webSearchData.results.length === 0) {
         return NextResponse.json({ error: 'Не удалось найти сайты для поиска' }, { status: 500 });
       }
-      const links = webSearchData.results;
-      // 2. Для каждой ссылки — извлекаем текст и анализируем ИИ по чанкам
-      const analyses: { url: string, title: string, analysis: string }[] = [];
-      const CHUNK_SIZE = 2000;
-      let chunkProgressArr: { site: number, totalSites: number, chunk: number, totalChunks: number }[] = [];
-      let siteIdx = 0;
-      let triedSites = 0;
-      const maxTries = Math.min(8, links.length); // максимум 8 сайтов подряд
-      while (siteIdx < links.length && analyses.length < 4 && triedSites < maxTries) {
-        const link = links[siteIdx];
-        siteIdx++;
-        triedSites++;
+      // Берём до 4 сайтов
+      const links = webSearchData.results.slice(0, 4);
+      // 2. Для каждого сайта — извлекаем текст и сжимаем через /api/compress
+      const summaries: { url: string, title: string, summary: string }[] = [];
+      for (const link of links) {
         // 2.1. Извлекаем текст
         let text = '';
         try {
@@ -258,81 +251,53 @@ export async function POST(request: NextRequest) {
         } catch {
           continue;
         }
-        // 2.2. Разбиваем текст на чанки
-        const chunks: string[] = [];
-        for (let i = 0; i < text.length; i += CHUNK_SIZE) {
-          chunks.push(text.slice(i, i + CHUNK_SIZE));
-        }
-        let chunkAnalyses: string[] = [];
-        for (let chunkIdx = 0; chunkIdx < chunks.length; chunkIdx++) {
-          const chunk = chunks[chunkIdx];
-          // Для фронта: сохраняем прогресс (можно отправлять через SSE или WebSocket, если нужно)
-          chunkProgressArr.push({ site: analyses.length + 1, totalSites: links.length, chunk: chunkIdx + 1, totalChunks: chunks.length });
-          // 2.3. Анализируем каждый чанк
-          let chunkAnalysis = '';
-          try {
-            let analysisPrompt = `Проанализируй этот фрагмент сайта по теме: ${message}\n\nВот фрагмент текста:\n${chunk}\n\nСформулируй, что важного/полезного ты понял из этого фрагмента. Не используй внешние знания, только этот текст.`;
-            if (modelId === 'neironka') {
-              chunkAnalysis = await askLMStudio([
-                { role: 'system', content: prompts.system },
-                { role: 'user', content: analysisPrompt }
-              ], 0.7, 600);
-              if (chunkAnalysis === '__LMSTUDIO_CONNECTION_ERROR__') {
-                return NextResponse.json({ error: 'У вас нестабильное соединение с моделью. Попробуйте позже.' }, { status: 503 });
-              }
-            } else {
-              const openai = getOpenAI(apiKey);
-              const completion = await openai.chat.completions.create({
-                model: selectedModel,
-                messages: [
-                  { role: 'system', content: prompts.system },
-                  { role: 'user', content: analysisPrompt }
-                ],
-                max_tokens: 600,
-                temperature: 0.7,
-              });
-              chunkAnalysis = completion.choices[0].message.content || '';
-            }
-          } catch {
-            chunkAnalysis = '[Ошибка анализа фрагмента сайта]';
-          }
-          chunkAnalyses.push(chunkAnalysis);
-        }
-        // 2.4. Объединяем выводы по чанкам в итог по сайту
-        let siteAnalysis = '';
+        // 2.2. Сжимаем текст до 250 символов через /api/compress
+        let summary = '';
         try {
-          let mergePrompt = `Вот выводы по частям сайта:\n${chunkAnalyses.map((a, i) => `[Часть ${i+1}]: ${a}`).join('\n')}\n\nОбъедини эти выводы в единый итог по сайту, не добавляй ничего лишнего.`;
-          if (modelId === 'neironka') {
-            siteAnalysis = await askLMStudio([
-              { role: 'system', content: prompts.system },
-              { role: 'user', content: mergePrompt }
-            ], 0.7, 800);
-            if (siteAnalysis === '__LMSTUDIO_CONNECTION_ERROR__') {
-              return NextResponse.json({ error: 'У вас нестабильное соединение с моделью. Попробуйте позже.' }, { status: 503 });
-            }
+          const compressRes = await fetch(`${request.nextUrl.origin}/api/compress`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, language, modelId })
+          });
+          const compressData = await compressRes.json();
+          if (compressRes.ok && compressData.result && compressData.result.length > 0) {
+            summary = compressData.result.slice(0, 250);
           } else {
-            const openai = getOpenAI(apiKey);
-            const completion = await openai.chat.completions.create({
-              model: selectedModel,
-              messages: [
-                { role: 'system', content: prompts.system },
-                { role: 'user', content: mergePrompt }
-              ],
-              max_tokens: 800,
-              temperature: 0.7,
-            });
-            siteAnalysis = completion.choices[0].message.content || '';
+            summary = text.slice(0, 250);
           }
         } catch {
-          siteAnalysis = chunkAnalyses.join('\n');
+          summary = text.slice(0, 250);
         }
-        analyses.push({ url: link.url, title: link.title, analysis: siteAnalysis });
+        summaries.push({ url: link.url, title: link.title, summary });
       }
-      // 3. Собираем финальный промпт
-      const finalPrompt = `Пользователь хочет: ${message}\n\nВот что удалось узнать из сайтов:\n${analyses.map((a, i) => `[${i+1}] ${a.title} (${a.url})\n${a.analysis}`).join('\n\n')}\n\nСформулируй итоговый ответ для пользователя, строго опираясь только на эти выводы.`;
+      // 3. Формируем финальный промпт только из summary
+      let finalPrompt = `Пользователь хочет: ${message}\n\nВот что удалось узнать из сайтов:\n${summaries.map((a, i) => `[${i+1}] ${a.title} (${a.url})\n${a.summary}`).join('\n\n')}\n\nСформулируй итоговый ответ для пользователя, строго опираясь только на эти выводы.`;
+      // Логируем длину промпта и количество сайтов
+      console.log(`[AI] Отправляем в LM Studio summary-промпт длиной ${finalPrompt.length} символов, сайтов: ${summaries.length}`);
+      if (finalPrompt.length > 4000) {
+        console.log(`[AI] Summary-промпт слишком длинный (${finalPrompt.length}), отправляем на сжатие...`);
+        try {
+          const compressRes = await fetch(`${request.nextUrl.origin}/api/compress`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: finalPrompt, language, modelId })
+          });
+          const compressData = await compressRes.json();
+          if (compressRes.ok && compressData.result && compressData.result.length > 0) {
+            finalPrompt = compressData.result;
+            console.log(`[AI] Сжатый summary-промпт: ${finalPrompt.length} символов`);
+          } else {
+            console.log('[AI] Не удалось сжать summary-промпт, используем оригинал');
+          }
+        } catch (err) {
+          console.log('[AI] Ошибка при сжатии summary-промпта:', err);
+        }
+      }
+      const t0 = Date.now();
       let answer = '';
       let reasoning = null;
       if (webSearchEnabled && reasoningEnabled) {
+        // reasoning-логика (оставляем как есть)
         // Сначала получаем финальный ответ по сайтам
         let sitesAnswer = '';
         if (modelId === 'neironka') {
@@ -380,35 +345,36 @@ export async function POST(request: NextRequest) {
           reasoning = completion.choices[0].message.content || '';
         }
         answer = sitesAnswer;
+      }
+      // Обычный финальный ответ (поиск без reasoning)
+      if (modelId === 'neironka') {
+        answer = await askLMStudio([
+          { role: 'system', content: prompts.system },
+          { role: 'user', content: finalPrompt }
+        ], 0.7, 1000);
+        if (answer === '__LMSTUDIO_CONNECTION_ERROR__') {
+          return NextResponse.json({ error: 'У вас нестабильное соединение с моделью. Попробуйте позже.' }, { status: 503 });
+        }
       } else {
-        // Обычный финальный ответ (поиск без reasoning)
-        if (modelId === 'neironka') {
-          answer = await askLMStudio([
+        const openai = getOpenAI(apiKey);
+        const completion = await openai.chat.completions.create({
+          model: selectedModel,
+          messages: [
             { role: 'system', content: prompts.system },
             { role: 'user', content: finalPrompt }
-          ], 0.7, 1000);
-          if (answer === '__LMSTUDIO_CONNECTION_ERROR__') {
-            return NextResponse.json({ error: 'У вас нестабильное соединение с моделью. Попробуйте позже.' }, { status: 503 });
-          }
-        } else {
-          const openai = getOpenAI(apiKey);
-          const completion = await openai.chat.completions.create({
-            model: selectedModel,
-            messages: [
-              { role: 'system', content: prompts.system },
-              { role: 'user', content: finalPrompt }
-            ],
-            max_tokens: 1000,
-            temperature: 0.7,
-          });
-          answer = completion.choices[0].message.content || '';
-        }
+          ],
+          max_tokens: 1000,
+          temperature: 0.7,
+        });
+        answer = completion.choices[0].message.content || '';
       }
+      const t1 = Date.now();
+      console.log(`[AI] Время поиска и генерации ответа LM Studio: ${t1 - t0} мс`);
       return NextResponse.json({
         reasoning,
         answer,
         role: 'assistant',
-        searchSources: analyses.map(a => ({ title: a.title, url: a.url }))
+        searchSources: summaries.map(a => ({ title: a.title, url: a.url }))
       });
     }
 
@@ -422,16 +388,6 @@ export async function POST(request: NextRequest) {
       prompt = message;
     }
 
-    // --- Старое поведение (без webSearchEnabled) ---
-    // Если webSearchEnabled=false, то:
-    // 1. Получаем ссылки для веб-поиска (если включен)
-    // 2. Если ссылки не получены или пусты, генерируем фейковые
-    // 3. Если webSearchEnabled=false, то searchSources будет пустым или содержать фейковые
-    // 4. Если isSimpleGreeting или isGreetingWithAction — используем короткий промпт
-    // 5. Если reasoningEnabled — получаем reasoning, формируем финальный ответ
-    // 6. Если reasoningEnabled=false — обычный ответ
-
-    // Явно инициализируем searchSources
     let searchSources: any[] = [];
     let webSearchSummary = '';
     let webSearchSnippets = '';
