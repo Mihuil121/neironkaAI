@@ -146,7 +146,7 @@ export default function UploadDropdown({
             >
               <FiFile className={styles.optionIcon} style={{ color: getIconColor(false) }} />
               <div className={styles.optionText}>
-                <span className={styles.optionTitle} style={{ color: '#23232a' }}>{t('file')}</span>
+                <span className={styles.optionTitle} style={{ color: chatThemeLight ? '#23232a' : '#fff' }}>{t('file')}</span>
                 <span className={styles.optionDesc}>{t('fileDesc')}</span>
               </div>
             </button>
@@ -169,7 +169,7 @@ export default function UploadDropdown({
               
               <FiImage className={styles.optionIcon} />
               <div className={styles.optionText}>
-                <span className={styles.optionTitle} style={{ color: '#23232a' }}>{t('image')}</span>
+                <span className={styles.optionTitle} style={{ color: chatThemeLight ? '#23232a' : '#fff' }}>{t('image')}</span>
                 <span className={styles.optionDesc}>{t('imageDesc')}</span>
               </div>
             </button>
@@ -192,7 +192,7 @@ export default function UploadDropdown({
               >
                 <FiYoutube className={styles.optionIcon} />
                 <div className={styles.optionText}>
-                  <span className={styles.optionTitle} style={{ color: '#23232a' }}>{t('youtubeVideo')}</span>
+                  <span className={styles.optionTitle} style={{ color: chatThemeLight ? '#23232a' : '#fff' }}>{t('youtubeVideo')}</span>
                   <span className={styles.optionDesc}>{t('youtubeDesc')}</span>
                 </div>
               </button>
@@ -235,7 +235,7 @@ export default function UploadDropdown({
               >
                 <FiUpload className={styles.optionIcon} />
                 <div className={styles.optionText}>
-                  <span className={styles.optionTitle} style={{ color: '#23232a' }}>{t('siteUrl')}</span>
+                  <span className={styles.optionTitle} style={{ color: chatThemeLight ? '#23232a' : '#fff' }}>{t('siteUrl')}</span>
                   <span className={styles.optionDesc}>{t('siteDesc')}</span>
                 </div>
               </button>
