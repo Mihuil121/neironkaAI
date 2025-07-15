@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { franc } from 'franc';
+// @ts-ignore
+import langs from 'langs';
 // Удалил импорт askLMStudioWithQueue
 // import { askLMStudioWithQueue } from '@/lib/lmstudioQueue';
 
@@ -127,13 +130,7 @@ const PROMPTS = {
 
 Формат ответа: текст, структурированный по смыслу, но без явных заголовков этапов.`,
   },
-  en: {
-    system: `You are a friendly and helpful AI assistant. Respond in English, be polite and try to give useful answers. If your response contains code, always use Markdown formatting with the programming language specified. For example: \`\`\`javascript for JavaScript, \`\`\`python for Python, \`\`\`html for HTML, etc. Always format headings with #, bold text with **, italic text with *, lists with - or 1., and inline code with \`.\n\nIf your response contains mathematical formulas, always format them in LaTeX: use $...$ for inline formulas and $$...$$ for block formulas. Do not use any other formatting for formulas.`,
-    reasoning: "You are an expert at analyzing tasks. Break down the user's task into logical steps and explain your thought process. Respond in English. If your analysis contains code, use Markdown formatting.",
-    reasoningWithAnalysis: "You are a friendly and helpful AI assistant. Respond in English, be polite and try to give useful answers. Use the results of your analysis to form your response. If your response contains code, always use Markdown formatting with the programming language specified.",
-    analyzeTask: "Analyze this task and explain how you will solve it:",
-    finalAnswer: "Task analysis:\n{reasoning}\n\nNow give a final answer based on this analysis."
-  }
+ 
 };
 
 // Функция для определения простых бытовых вопросов (приветствия и small talk)
@@ -156,6 +153,29 @@ export async function POST(request: NextRequest) {
                    request.headers.get('x-real-ip') || 
                    'unknown';
     
+    // --- Определяем язык сообщения пользователя ---
+    let detectedLang = 'ru';
+    let detectedLangName = 'русском';
+    try {
+      const francCode = franc(message || '');
+      if (francCode && francCode !== 'und') {
+        const langData = langs.where('3', francCode);
+        if (langData) {
+          detectedLang = langData['1'] || detectedLang;
+          detectedLangName = langData.local || langData.name || detectedLangName;
+        }
+      }
+    } catch {}
+    // Если пользователь пишет не на русском и не на английском, добавляем к system-промпту инструкцию писать на его языке
+    let systemPrompt = PROMPTS.ru.system;
+    if (detectedLang !== 'ru' && detectedLang !== 'en') {
+      systemPrompt += `\nВНИМАНИЕ: Всегда отвечай только на ${detectedLangName} языке, даже если вопрос был на другом языке.`;
+    }
+    console.log({ detectedLang, detectedLangName, systemPrompt, message });
+    if (detectedLang !== 'ru' && detectedLang !== 'en') {
+      systemPrompt += `\nПиши на ${detectedLangName} языке.`;
+    }
+
     // Проверяем лимиты для Neironka (LM Studio)
     if (modelId === 'neironka' && !checkUserLimit(userIP)) {
       const userData = userRequestLimits.get(userIP);
@@ -199,7 +219,7 @@ export async function POST(request: NextRequest) {
     }
 
     const selectedModel = MODEL_MAP[modelId] || 'local-model';
-    const prompts = PROMPTS[language as keyof typeof PROMPTS] || PROMPTS.ru;
+    const prompts = PROMPTS.ru;
 
     // --- Новый алгоритм: webSearchEnabled ---
     let searchMessage = message;
@@ -302,7 +322,7 @@ export async function POST(request: NextRequest) {
         let sitesAnswer = '';
         if (modelId === 'neironka') {
           sitesAnswer = await askLMStudio([
-            { role: 'system', content: prompts.system },
+            { role: 'system', content: systemPrompt },
             { role: 'user', content: finalPrompt }
           ], 0.7, 1000);
           if (sitesAnswer === '__LMSTUDIO_CONNECTION_ERROR__') {
@@ -313,7 +333,7 @@ export async function POST(request: NextRequest) {
           const completion = await openai.chat.completions.create({
             model: selectedModel,
             messages: [
-              { role: 'system', content: prompts.system },
+              { role: 'system', content: systemPrompt },
               { role: 'user', content: finalPrompt }
             ],
             max_tokens: 1000,
@@ -325,9 +345,10 @@ export async function POST(request: NextRequest) {
         const reasoningPrompt = `${prompts.reasoning}\n\nВот информация, которую удалось собрать по вашему запросу из сайтов:\n${sitesAnswer}\n\nПроанализируй эти данные, объясни логику, сделай пошаговый разбор и только потом дай финальный вывод.`;
         if (modelId === 'neironka') {
           reasoning = await askLMStudio([
-            { role: 'system', content: prompts.reasoning },
+            { role: 'system', content: systemPrompt + (reasoningPrompt ? '\n' + reasoningPrompt : '') },
+            ...conversationHistory,
             { role: 'user', content: reasoningPrompt }
-          ], 0.7, 1000);
+          ], 0.7, 800);
           if (reasoning === '__LMSTUDIO_CONNECTION_ERROR__') {
             return NextResponse.json({ error: 'У вас нестабильное соединение с моделью. Попробуйте позже.' }, { status: 503 });
           }
@@ -336,10 +357,11 @@ export async function POST(request: NextRequest) {
           const completion = await openai.chat.completions.create({
             model: selectedModel,
             messages: [
-              { role: 'system', content: prompts.reasoning },
+              { role: 'system', content: systemPrompt + (reasoningPrompt ? '\n' + reasoningPrompt : '') },
+              ...conversationHistory,
               { role: 'user', content: reasoningPrompt }
             ],
-            max_tokens: 1000,
+            max_tokens: 800,
             temperature: 0.7,
           });
           reasoning = completion.choices[0].message.content || '';
@@ -349,7 +371,7 @@ export async function POST(request: NextRequest) {
       // Обычный финальный ответ (поиск без reasoning)
       if (modelId === 'neironka') {
         answer = await askLMStudio([
-          { role: 'system', content: prompts.system },
+          { role: 'system', content: systemPrompt },
           { role: 'user', content: finalPrompt }
         ], 0.7, 1000);
         if (answer === '__LMSTUDIO_CONNECTION_ERROR__') {
@@ -360,7 +382,7 @@ export async function POST(request: NextRequest) {
         const completion = await openai.chat.completions.create({
           model: selectedModel,
           messages: [
-            { role: 'system', content: prompts.system },
+            { role: 'system', content: systemPrompt },
             { role: 'user', content: finalPrompt }
           ],
           max_tokens: 1000,
@@ -524,6 +546,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // --- reasoningEnabled ---
     if (reasoningEnabled) {
       // Если включено reasoning, сначала получаем reasoning
       let contextBlock = '';
@@ -539,7 +562,7 @@ export async function POST(request: NextRequest) {
           let compressPrompt = `Сожми этот текст до 8000 символов, сохранив суть:\n\n${reasoningPrompt}`;
           if (modelId === 'neironka') {
             reasoningPrompt = await askLMStudio([
-              { role: 'system', content: prompts.system },
+              { role: 'system', content: systemPrompt },
               { role: 'user', content: compressPrompt }
             ], 0.5, 800);
             if (reasoningPrompt === '__LMSTUDIO_CONNECTION_ERROR__') {
@@ -550,7 +573,7 @@ export async function POST(request: NextRequest) {
             const completion = await openai.chat.completions.create({
               model: selectedModel,
               messages: [
-                { role: 'system', content: prompts.system },
+                { role: 'system', content: systemPrompt },
                 { role: 'user', content: compressPrompt }
               ],
               max_tokens: 800,
@@ -571,7 +594,7 @@ export async function POST(request: NextRequest) {
         try {
           if (modelId === 'neironka') {
             reasoning = await askLMStudio([
-              { role: 'system', content: prompts.reasoning + (contextBlock ? '\n' + contextBlock : '') },
+              { role: 'system', content: systemPrompt + (contextBlock ? '\n' + contextBlock : '') },
               ...conversationHistory,
               { role: 'user', content: reasoningPrompt }
             ], 0.7, 800);
@@ -583,7 +606,7 @@ export async function POST(request: NextRequest) {
             const reasoningCompletion = await openai.chat.completions.create({
               model: selectedModel,
               messages: [
-                { role: 'system', content: prompts.reasoning + (contextBlock ? '\n' + contextBlock : '') },
+                { role: 'system', content: systemPrompt + (contextBlock ? '\n' + contextBlock : '') },
                 ...conversationHistory,
                 { role: 'user', content: reasoningPrompt }
               ],
@@ -607,7 +630,7 @@ export async function POST(request: NextRequest) {
                 let chunkRes = '';
                 if (modelId === 'neironka') {
                   chunkRes = await askLMStudio([
-                    { role: 'system', content: prompts.reasoning },
+                    { role: 'system', content: systemPrompt },
                     { role: 'user', content: chunk }
                   ], 0.7, 800);
                   if (chunkRes === '__LMSTUDIO_CONNECTION_ERROR__') {
@@ -618,7 +641,7 @@ export async function POST(request: NextRequest) {
                   const completion = await openai.chat.completions.create({
                     model: selectedModel,
                     messages: [
-                      { role: 'system', content: prompts.reasoning },
+                      { role: 'system', content: systemPrompt },
                       { role: 'user', content: chunk }
                     ],
                     max_tokens: 800,
@@ -634,7 +657,7 @@ export async function POST(request: NextRequest) {
               const mergePrompt = `Объедини эти рассуждения в единый итог:\n${chunkReasonings.map((r, i) => `[Часть ${i+1}]: ${r}`).join('\n')}`;
               if (modelId === 'neironka') {
                 reasoning = await askLMStudio([
-                  { role: 'system', content: prompts.reasoning },
+                  { role: 'system', content: systemPrompt },
                   { role: 'user', content: mergePrompt }
                 ], 0.7, 800);
                 if (reasoning === '__LMSTUDIO_CONNECTION_ERROR__') {
@@ -645,7 +668,7 @@ export async function POST(request: NextRequest) {
                 const completion = await openai.chat.completions.create({
                   model: selectedModel,
                   messages: [
-                    { role: 'system', content: prompts.reasoning },
+                    { role: 'system', content: systemPrompt },
                     { role: 'user', content: mergePrompt }
                   ],
                   max_tokens: 800,
@@ -672,7 +695,7 @@ export async function POST(request: NextRequest) {
       const answerMessages = [
         {
           role: "system",
-          content: prompts.reasoningWithAnalysis + (answerContextBlock ? '\n' + answerContextBlock : '')
+          content: systemPrompt + (answerContextBlock ? '\n' + answerContextBlock : '')
         },
         ...conversationHistory,
         {
@@ -723,7 +746,7 @@ export async function POST(request: NextRequest) {
       const messages = [
         {
           role: "system",
-          content: prompts.system
+          content: systemPrompt
         },
         ...conversationHistory,
         {

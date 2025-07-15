@@ -208,7 +208,7 @@ export default function ChatInterface() {
   useEffect(() => {
     if (isHydrated && (!currentChatId || chats.length === 0)) {
       // Если нет чата — создаём автоматически
-      createChat('Новый чат', models[0]?.id || 'neironka');
+      createChat(t('newChat'), models[0]?.id || 'neironka');
     }
   }, [isHydrated, currentChatId, chats.length, createChat, models]);
 
@@ -285,7 +285,7 @@ export default function ChatInterface() {
     if (!(message.trim() || uploadedFile) || isLoading) return;
     // Если нет активного чата — создать его автоматически
     if (!currentChatId) {
-      createChat('Новый чат', models[0]?.id || 'neironka');
+      createChat(t('newChat'), models[0]?.id || 'neironka');
       // Ждём, пока currentChatId появится (асинхронно)
       let waitCount = 0;
       while (!useChatStore.getState().currentChatId && waitCount < 20) {
@@ -429,7 +429,7 @@ export default function ChatInterface() {
   };
 
   const handleCreateChat = () => {
-    createChat(newChatTitle.trim() || 'Новый чат', models[0]?.id || 'neironka');
+    createChat(newChatTitle.trim() || t('newChat'), models[0]?.id || 'neironka');
     setNewChatTitle('');
   };
 
@@ -623,7 +623,7 @@ export default function ChatInterface() {
             </button>
           </div>
           <div className={styles.chatsList}>
-            <div className={styles.chatsHistoryTitle}>История чатов</div>
+            <div className={styles.chatsHistoryTitle}>{t('chatHistory')}</div>
             {chats.length === 0 && (
               <div className={styles.emptyChats}><FiMessageSquare /> {t('noChats')}</div>
             )}
@@ -749,7 +749,7 @@ export default function ChatInterface() {
                     </button>
                   </div>
                   <div className={styles.chatsList}>
-                    <div className={styles.chatsHistoryTitle}>История чатов</div>
+                    <div className={styles.chatsHistoryTitle}>{t('chatHistory')}</div>
                     {chats.length === 0 && (
                       <div className={styles.emptyChats}><FiMessageSquare /> {t('noChats')}</div>
                     )}

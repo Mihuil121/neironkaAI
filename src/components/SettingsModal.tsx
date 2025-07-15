@@ -10,7 +10,8 @@ import { useChatStore } from '@/store/useChatStore';
 const LANGUAGES = [
   { code: 'ru', label: 'Русский' },
   { code: 'en', label: 'English' },
-  { code: 'zh-Hans', label: '中文' },
+  { code: 'zhHans', label: '中文' },
+  { code: 'tl', label: 'Filipino' },
   { code: 'es', label: 'Español' },
   { code: 'de', label: 'Deutsch' },
 ];
