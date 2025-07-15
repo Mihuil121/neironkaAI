@@ -66,7 +66,6 @@ function ThemeToggle() {
   );
 }
 
-// Добавим компонент этапов загрузки
 function ProgressStage({ isThinking, chunkProgress, isLoading, reasoningEnabled, webSearchEnabled }: { isThinking: boolean, chunkProgress: any, isLoading: boolean, reasoningEnabled?: boolean, webSearchEnabled?: boolean }) {
   const { t } = useTranslation();
   if (!isThinking && !isLoading) return null;
