@@ -9,7 +9,7 @@ import UploadDropdown from './UploadDropdown';
 import SettingsModal from './SettingsModal';
 import ShareModal from './ShareModal';
 import styles from './ChatInterface.module.scss';
-import { FiPlus, FiTrash2, FiLogOut, FiMessageSquare, FiUser, FiSend, FiUpload, FiSettings, FiX, FiZap, FiSearch, FiChevronDown, FiChevronUp, FiChevronLeft, FiChevronRight, FiShare2, FiMenu, FiCopy, FiRefreshCw, FiEdit2 } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiLogOut, FiMessageSquare, FiUser, FiSend, FiUpload, FiSettings, FiX, FiZap, FiSearch, FiChevronDown, FiChevronUp, FiChevronLeft, FiChevronRight, FiShare2, FiMenu, FiCopy, FiRefreshCw, FiEdit2, FiGlobe } from 'react-icons/fi';
 import { FaRobot } from 'react-icons/fa';
 import Tesseract from 'tesseract.js';
 import { supabase } from '@/lib/supabaseClient';
@@ -90,6 +90,56 @@ function ProgressStage({ isThinking, chunkProgress, isLoading, reasoningEnabled,
       <span>{stageText}</span>
       <span className={styles.thinkingDots}><span></span><span></span><span></span></span>
     </div>
+  );
+}
+
+// Добавим компонент карточки источника
+function SourceCard({ source }: { source: { title: string; url: string; favicon?: string } }) {
+  const [imgError, setImgError] = useState(false);
+  return (
+    <a
+      href={source.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'flex-start',
+        justifyContent: 'flex-start',
+        width: 180,
+        height: 80, // уменьшено с 120
+        background: '#23232a',
+        color: '#fff',
+        borderRadius: 12,
+        boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+        padding: 14,
+        textDecoration: 'none',
+        gap: 10,
+        transition: 'box-shadow 0.2s, background 0.2s',
+        fontWeight: 500,
+        fontSize: 15,
+        overflow: 'hidden',
+        position: 'relative',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        {source.favicon && !imgError ? (
+          <img
+            src={source.favicon}
+            alt="favicon"
+            width={24}
+            height={24}
+            style={{ borderRadius: 4, background: '#fff', boxShadow: '0 1px 4px #0002' }}
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <FiGlobe size={24} color="#f59e42" style={{ background: '#fff', borderRadius: 4, boxShadow: '0 1px 4px #0002' }} />
+        )}
+        <span style={{ fontWeight: 600, fontSize: 15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 120 }}>{source.title}</span>
+      </div>
+      <div style={{ flex: 1 }} />
+      <span style={{ fontSize: 13, color: '#f59e42', marginTop: 'auto', wordBreak: 'break-all', opacity: 0.85 }}>{source.url.replace(/^https?:\/\//, '').replace(/\/$/, '')}</span>
+    </a>
   );
 }
 
@@ -954,70 +1004,23 @@ export default function ChatInterface() {
                         </div>
                         {/* Кнопки ссылок для обычных сообщений AI */}
                         {msg.role === 'assistant' && Array.isArray(msg.searchSources) && msg.searchSources.length > 0 && (
-                          <div style={{marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center'}}>
-                            {(msg.searchSources.length > 0
-                              ? [...msg.searchSources.slice(0, 4), ...Array(4 - Math.min(msg.searchSources.length, 4)).fill(null)]
-                              : Array(4).fill(null)
-                            ).map((source, idx) => {
-                              // Преобразуем строки в объекты, если нужно
+                          <div style={{
+                            marginTop: 14,
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                            gap: 16,
+                            width: '100%',
+                            maxWidth: 740,
+                          }}>
+                            {msg.searchSources.slice(0, 4).map((source, idx) => {
                               const processedSource = typeof source === 'string' ? {
-                                title: new URL(source).hostname,
+                                title: (() => { try { return new URL(source).hostname; } catch { return source; } })(),
                                 url: source,
-                                favicon: `https://www.google.com/s2/favicons?domain=${new URL(source).hostname}`
+                                favicon: (() => { try { return `https://www.google.com/s2/favicons?domain=${new URL(source).hostname}`; } catch { return ''; } })(),
                               } : source;
-                              
                               return processedSource ? (
-                                <a
-                                  key={idx}
-                                  href={processedSource.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    background: '#23232a',
-                                    color: '#fff',
-                                    border: '1px solid #444',
-                                    borderRadius: 6,
-                                    padding: '3px 10px 3px 6px',
-                                    fontWeight: 500,
-                                    fontSize: '0.97em',
-                                    textDecoration: 'none',
-                                    transition: 'background 0.2s, color 0.2s',
-                                    cursor: 'pointer',
-                                    minWidth: 0,
-                                    maxWidth: 120,
-                                    gap: 5,
-                                  }}
-                                >
-                                  {processedSource.favicon && (
-                                    <img src={processedSource.favicon} alt="" width={16} height={16} style={{marginRight: 4, borderRadius: 3}} />
-                                  )}
-                                  {processedSource.title}
-                                </a>
-                              ) : (
-                                <span
-                                  key={idx}
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    background: '#23232a',
-                                    color: '#888',
-                                    border: '1px dashed #888',
-                                    borderRadius: 6,
-                                    padding: '3px 10px',
-                                    fontWeight: 500,
-                                    fontSize: '0.97em',
-                                    opacity: 0.6,
-                                    cursor: 'not-allowed',
-                                    minWidth: 0,
-                                    maxWidth: 120,
-                                  }}
-                                >
-                                  —
-                                </span>
-                              );
+                                <SourceCard key={idx} source={processedSource} />
+                              ) : null;
                             })}
                           </div>
                         )}
