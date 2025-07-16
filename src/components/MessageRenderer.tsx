@@ -10,6 +10,8 @@ import 'katex/dist/katex.min.css';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import { parse } from 'mathjs';
+import MarkdownCodeBlock from './MarkdownCodeBlock';
+import MarkdownInlineCode from './MarkdownInlineCode';
 
 interface MessageRendererProps {
   content: string;
@@ -80,33 +82,11 @@ export default function MessageRenderer({ content, className, themeLight }: Mess
             const language = match ? match[1] : '';
             if (inline) {
               return (
-                <code className={styles.inlineCode} {...props}>
-                  {children}
-                </code>
+                <MarkdownInlineCode {...props}>{children}</MarkdownInlineCode>
               );
             }
             return (
-              <div className={styles.codeBlock}>
-                {language && (
-                  <div className={styles.codeHeader}>
-                    <span className={styles.languageLabel}>{language}</span>
-                  </div>
-                )}
-                <SyntaxHighlighter
-                  style={tomorrow}
-                  language={language}
-                  PreTag="div"
-                  customStyle={{
-                    margin: 0,
-                    borderRadius: language ? '0 0 8px 8px' : '8px',
-                    fontSize: '14px',
-                    lineHeight: '1.5',
-                  }}
-                  {...props}
-                >
-                  {String(children).replace(/\n$/, '')}
-                </SyntaxHighlighter>
-              </div>
+              <MarkdownCodeBlock language={language}>{children}</MarkdownCodeBlock>
             );
           }
         }}

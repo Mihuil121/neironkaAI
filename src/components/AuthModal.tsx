@@ -3,6 +3,9 @@
 import { useState } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 import styles from './AuthModal.module.scss';
+import AuthModalHeader from './AuthModalHeader';
+import AuthInput from './AuthInput';
+import AuthError from './AuthError';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -42,68 +45,49 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   return (
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-        <button className={styles.closeButton} onClick={onClose}>
-          ×
-        </button>
-        
-        <div className={styles.header}>
-          <h2>{isLogin ? 'Вход' : 'Регистрация'}</h2>
-          <button
-            className={styles.switchButton}
-            onClick={() => {
-              setIsLogin(!isLogin);
-              setFormData({ email: '', password: '', name: '' });
-              clearError();
-            }}
-          >
-            {isLogin ? 'Создать аккаунт' : 'Уже есть аккаунт?'}
-          </button>
-        </div>
-
+        <AuthModalHeader
+          isLogin={isLogin}
+          onSwitch={() => {
+            setIsLogin(!isLogin);
+            setFormData({ email: '', password: '', name: '' });
+            clearError();
+          }}
+          onClose={onClose}
+        />
         <form onSubmit={handleSubmit} className={styles.form}>
           {!isLogin && (
-            <div className={styles.inputGroup}>
-              <label htmlFor="name">Имя</label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                required={!isLogin}
-                placeholder="Введите ваше имя"
-              />
-            </div>
+            <AuthInput
+              label="Имя"
+              type="text"
+              id="name"
+              name="name"
+              value={formData.name}
+              onChange={handleInputChange}
+              required={!isLogin}
+              placeholder="Введите ваше имя"
+            />
           )}
-
-          <div className={styles.inputGroup}>
-            <label htmlFor="email">Email</label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              required
-              placeholder="Введите email"
-            />
-          </div>
-
-          <div className={styles.inputGroup}>
-            <label htmlFor="password">Пароль</label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              value={formData.password}
-              onChange={handleInputChange}
-              required
-              placeholder="Введите пароль"
-            />
-          </div>
-
-          {error && <div className={styles.error}>{error}</div>}
-
+          <AuthInput
+            label="Email"
+            type="email"
+            id="email"
+            name="email"
+            value={formData.email}
+            onChange={handleInputChange}
+            required
+            placeholder="Введите email"
+          />
+          <AuthInput
+            label="Пароль"
+            type="password"
+            id="password"
+            name="password"
+            value={formData.password}
+            onChange={handleInputChange}
+            required
+            placeholder="Введите пароль"
+          />
+          <AuthError error={error || ''} />
           <button
             type="submit"
             className={styles.submitButton}

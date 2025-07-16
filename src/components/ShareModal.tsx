@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 import styles from './ShareModal.module.scss';
 import { FiX, FiCopy, FiDownload, FiShare2 } from 'react-icons/fi';
+import ShareModalHeader from './ShareModalHeader';
+import ShareModalContent from './ShareModalContent';
 
 interface ShareModalProps {
   open: boolean;
@@ -80,15 +82,8 @@ export default function ShareModal({ open, onClose, chatId, chatTitle }: ShareMo
   return (
     <div className={styles.overlay}>
       <div className={styles.modal}>
-        <button className={styles.closeBtn} onClick={onClose} title="Закрыть">
-          <FiX />
-        </button>
-        <div className={styles.header}>
-          <h2>Поделиться чатом</h2>
-        </div>
-        <div style={{color: '#f59e42', fontWeight: 700, textAlign: 'center', margin: '40px 0', fontSize: '1.2em'}}>
-          Пока что функция шаринга чата недоступна.
-        </div>
+        <ShareModalHeader onClose={onClose} />
+        <ShareModalContent />
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useChatStore, Chat, Message } from '@/store/useChatStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useTranslation } from '@/lib/translations';
@@ -51,10 +52,8 @@ async function processChunksWithLimit<T, R>(chunks: T[], handler: (chunk: T, i: 
   return results;
 }
 
-// Добавить хелпер для определения мобильного устройства
 const isMobile = typeof window !== 'undefined' && window.innerWidth <= 767;
 
-// Добавить хелпер для очень маленьких экранов
 const isVerySmall = typeof window !== 'undefined' && window.innerWidth <= 420;
 
 function ThemeToggle() {
@@ -95,50 +94,137 @@ function ProgressStage({ isThinking, chunkProgress, isLoading, reasoningEnabled,
 // Добавим компонент карточки источника
 function SourceCard({ source }: { source: { title: string; url: string; favicon?: string } }) {
   const [imgError, setImgError] = useState(false);
+  const isMobile = useMediaQuery('(max-width: 480px)');
+  const { chatThemeLight } = useChatStore();
   return (
-    <a
+    <motion.a
       href={source.url}
       target="_blank"
       rel="noopener noreferrer"
+      whileHover={{ scale: 1.06, boxShadow: chatThemeLight ? '0 4px 16px rgba(0,0,0,0.13)' : '0 4px 16px rgba(0,0,0,0.25)' }}
+      transition={{ type: 'spring', stiffness: 300, damping: 22 }}
       style={{
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'flex-start',
         justifyContent: 'flex-start',
-        width: 180,
-        height: 80, // уменьшено с 120
-        background: '#23232a',
-        color: '#fff',
+        width: isMobile ? 120 : 180,
+        height: isMobile ? 56 : 80,
+        background: chatThemeLight ? '#fff' : '#23232a',
+        color: chatThemeLight ? '#23232a' : '#fff',
         borderRadius: 12,
-        boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-        padding: 14,
+        boxShadow: chatThemeLight ? '0 2px 8px rgba(0,0,0,0.08)' : '0 2px 8px rgba(0,0,0,0.15)',
+        border: chatThemeLight ? '1px solid #e5e7eb' : 'none',
+        padding: isMobile ? 8 : 14,
         textDecoration: 'none',
-        gap: 10,
-        transition: 'box-shadow 0.2s, background 0.2s',
+        gap: isMobile ? 4 : 7,
         fontWeight: 500,
-        fontSize: 15,
+        fontSize: isMobile ? 13 : 15,
         overflow: 'hidden',
         position: 'relative',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 5 : 8, marginBottom: isMobile ? 2 : 4 }}>
         {source.favicon && !imgError ? (
           <img
             src={source.favicon}
             alt="favicon"
-            width={24}
-            height={24}
-            style={{ borderRadius: 4, background: '#fff', boxShadow: '0 1px 4px #0002' }}
+            width={isMobile ? 18 : 24}
+            height={isMobile ? 18 : 24}
+            style={{ borderRadius: 4, background: chatThemeLight ? '#fff' : '#fff', boxShadow: '0 1px 4px #0002' }}
             onError={() => setImgError(true)}
           />
         ) : (
-          <FiGlobe size={24} color="#f59e42" style={{ background: '#fff', borderRadius: 4, boxShadow: '0 1px 4px #0002' }} />
+          <FiGlobe size={isMobile ? 18 : 24} color="#f59e42" style={{ background: '#fff', borderRadius: 4, boxShadow: '0 1px 4px #0002' }} />
         )}
-        <span style={{ fontWeight: 600, fontSize: 15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 120 }}>{source.title}</span>
+        <span style={{ fontWeight: 600, fontSize: isMobile ? 13 : 15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: isMobile ? 70 : 120 }}>{source.title}</span>
       </div>
+      <span style={{ fontSize: isMobile ? 11 : 13, color: chatThemeLight ? '#f59e42' : '#f59e42', margin: isMobile ? '2px 0 0 0' : '4px 0 0 0', wordBreak: 'break-all', opacity: 0.85 }}>{source.url.replace(/^https?:\/\//, '').replace(/\/$/, '')}</span>
       <div style={{ flex: 1 }} />
-      <span style={{ fontSize: 13, color: '#f59e42', marginTop: 'auto', wordBreak: 'break-all', opacity: 0.85 }}>{source.url.replace(/^https?:\/\//, '').replace(/\/$/, '')}</span>
-    </a>
+    </motion.a>
+  );
+}
+
+// Хук для медиа-запроса
+function useMediaQuery(query: string) {
+  const [matches, setMatches] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia(query);
+    if (media.matches !== matches) {
+      setMatches(media.matches);
+    }
+    const listener = () => setMatches(media.matches);
+    media.addEventListener('change', listener);
+    return () => media.removeEventListener('change', listener);
+  }, [matches, query]);
+  return matches;
+}
+
+// Добавляю компонент анимированного гамбургера
+function AnimatedHamburger({ isOpen, onClick }: { isOpen: boolean, onClick: () => void }) {
+  return (
+    <button
+      className={styles.menuBtn}
+      onClick={onClick}
+      title={isOpen ? 'Закрыть меню' : 'Открыть меню'}
+      style={{
+        width: 40,
+        height: 40,
+        background: 'none',
+        border: 'none',
+        padding: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'pointer',
+        position: 'relative'
+      }}
+    >
+      <span style={{ position: 'relative', width: 28, height: 22, display: 'block' }}>
+        <motion.span
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            width: 28,
+            height: 3,
+            borderRadius: 2,
+            background: '#ff9900',
+            display: 'block'
+          }}
+          animate={isOpen ? { rotate: 45, y: 9 } : { rotate: 0, y: 0 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+        />
+        <motion.span
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: 9.5,
+            width: 28,
+            height: 3,
+            borderRadius: 2,
+            background: '#ff9900',
+            display: 'block'
+          }}
+          animate={isOpen ? { opacity: 0 } : { opacity: 1 }}
+          transition={{ duration: 0.2 }}
+        />
+        <motion.span
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: 19,
+            width: 28,
+            height: 3,
+            borderRadius: 2,
+            background: '#ff9900',
+            display: 'block'
+          }}
+          animate={isOpen ? { rotate: -45, y: -9 } : { rotate: 0, y: 0 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+        />
+      </span>
+    </button>
   );
 }
 
@@ -332,6 +418,7 @@ export default function ChatInterface() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!(message.trim() || uploadedFile) || isLoading) return;
+    setMessage(''); // Очищаем инпут сразу после отправки!
     // Если нет активного чата — создать его автоматически
     if (!currentChatId) {
       createChat(t('newChat'), models[0]?.id || 'neironka');
@@ -659,124 +746,162 @@ export default function ChatInterface() {
     <>
       <div className={styles.wrapper} data-chat-theme={chatThemeLight ? 'light' : 'dark'}>
         {/* Sidebar (desktop/tablet only) */}
-        <aside className={`${styles.sidebar} ${isSidebarCollapsed ? styles.sidebarCollapsed : ''}`} style={{ display: typeof window !== 'undefined' && window.innerWidth <= 767 ? 'none' : undefined }}>
-          <div className={styles.sidebarHeader}>
-            <Image src={Ai} alt="AI" width={32} height={32} style={{ borderRadius: '50%' }} />
-            <span className={styles.appName}>Neironka Ai</span>
-            <button
-              className={styles.collapseBtn}
-              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-              title={isSidebarCollapsed ? 'Развернуть' : 'Свернуть'}
+        <AnimatePresence initial={false}>
+          {(!isSidebarCollapsed && (typeof window === 'undefined' || window.innerWidth > 767)) && (
+            <motion.aside
+              key="sidebar"
+              initial={{ x: -320, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -320, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              className={styles.sidebar}
             >
-              {isSidebarCollapsed ? <FiChevronRight /> : <FiChevronLeft />}
-            </button>
-          </div>
-          <div className={styles.chatsList}>
-            <div className={styles.chatsHistoryTitle}>{t('chatHistory')}</div>
-            {chats.length === 0 && (
-              <div className={styles.emptyChats}><FiMessageSquare /> {t('noChats')}</div>
-            )}
-            {chats.map((chat) => (
-              <div
-                key={chat.id}
-                className={
-                  chat.id === currentChatId
-                    ? styles.chatItemActive
-                    : styles.chatItem
-                }
-                onClick={() => selectChat(chat.id)}
-              >
-                <span className={styles.chatTitle}
-                  style={{ color: chatThemeLight ? '#23232a' : '#fff' }}
+              <div className={styles.sidebarHeader}>
+                <Image src={Ai} alt="AI" width={32} height={32} style={{ borderRadius: '50%' }} />
+                <span
+                  className={styles.appName}
+                  style={{ color: chatThemeLight ? '#ededed' : '#ededed' }}
                 >
-                  <FiMessageSquare style={{marginRight: 6}} />
-                  {editingChatId === chat.id ? (
-                    <input
-                      type="text"
-                      value={editingTitle}
-                      autoFocus
-                      onChange={e => setEditingTitle(e.target.value)}
-                      onBlur={() => {
-                        if (editingTitle.trim() && editingTitle !== chat.title) renameChat(chat.id, editingTitle.trim());
-                        setEditingChatId(null);
-                      }}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') {
-                          if (editingTitle.trim() && editingTitle !== chat.title) renameChat(chat.id, editingTitle.trim());
-                          setEditingChatId(null);
-                        } else if (e.key === 'Escape') {
-                          setEditingChatId(null);
-                        }
-                      }}
-                      className={styles.renameInput}
-                      style={{fontSize: '1em', padding: '2px 6px', borderRadius: 4, border: '1px solid #888', width: '80%'}}
-                    />
-                  ) : (
-                    <>
-                      {chat.title}
-                      {chat.id === currentChatId && (
-                        <button
-                          className={styles.renameBtn}
-                          style={{marginLeft: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#aaa'}}
-                          title="Переименовать чат"
-                          onClick={e => { e.stopPropagation(); setEditingChatId(chat.id); setEditingTitle(chat.title); }}
-                        >
-                          <FiEdit2 size={15} />
-                        </button>
-                      )}
-                    </>
-                  )}
+                  Neironka Ai
                 </span>
-                <div className={styles.chatActions}>
-                  <button
-                    className={styles.shareChatBtn}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowShareModal(true);
-                    }}
-                    title="Поделиться чатом"
-                  >
-                    <FiShare2 />
-                  </button>
-                  <button
-                    className={styles.deleteChatBtn}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteChat(chat.id);
-                    }}
-                    title={t('deleteChat')}
-                  >
-                    <FiTrash2 />
-                  </button>
-                </div>
+                <button
+                  className={styles.collapseBtn}
+                  onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                  title={isSidebarCollapsed ? 'Развернуть' : 'Свернуть'}
+                >
+                  {isSidebarCollapsed ? <FiChevronRight /> : <FiChevronLeft />}
+                </button>
               </div>
-            ))}
-          </div>
-          <div className={styles.newChatBox}>
-            <input
-              type="text"
-              placeholder={t('chatTitle')}
-              value={newChatTitle}
-              onChange={(e) => setNewChatTitle(e.target.value)}
-              className={styles.newChatInput}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleCreateChat();
-              }}
-            />
-            <button className={styles.newChatBtn} onClick={handleCreateChat} title={t('newChat')}>
-              <FiPlus />
-            </button>
-          </div>
-          <div className={styles.sidebarFooter}>
-            <div className={styles.userInfoSidebar}>
-              <span className={styles.avatarSidebar}><FiUser /></span>
-              <span className={styles.userNameSidebar}>{user?.name || t('user')}</span>
-            </div>
-            <button className={styles.logoutSidebar} onClick={logout} title={t('logout')}>
-              <FiLogOut />
-            </button>
-          </div>
-        </aside>
+              <div className={styles.chatsList}>
+                <div className={styles.chatsHistoryTitle}>{t('chatHistory')}</div>
+                {chats.length === 0 && (
+                  <div className={styles.emptyChats}><FiMessageSquare /> {t('noChats')}</div>
+                )}
+                {chats.map((chat) => (
+                  <div
+                    key={chat.id}
+                    className={
+                      chat.id === currentChatId
+                        ? styles.chatItemActive
+                        : styles.chatItem
+                    }
+                    onClick={() => selectChat(chat.id)}
+                  >
+                    <span className={styles.chatTitle}
+                      style={{ color: chatThemeLight ? '#23232a' : '#fff' }}
+                    >
+                      <FiMessageSquare style={{marginRight: 6}} />
+                      {editingChatId === chat.id ? (
+                        <input
+                          type="text"
+                          value={editingTitle}
+                          autoFocus
+                          onChange={e => setEditingTitle(e.target.value)}
+                          onBlur={() => {
+                            if (editingTitle.trim() && editingTitle !== chat.title) renameChat(chat.id, editingTitle.trim());
+                            setEditingChatId(null);
+                          }}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              if (editingTitle.trim() && editingTitle !== chat.title) renameChat(chat.id, editingTitle.trim());
+                              setEditingChatId(null);
+                            } else if (e.key === 'Escape') {
+                              setEditingChatId(null);
+                            }
+                          }}
+                          className={styles.renameInput}
+                          style={{fontSize: '1em', padding: '2px 6px', borderRadius: 4, border: '1px solid #888', width: '80%'}}
+                        />
+                      ) : (
+                        <>
+                          {chat.title}
+                          {chat.id === currentChatId && (
+                            <button
+                              className={styles.renameBtn}
+                              style={{marginLeft: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#aaa'}}
+                              title="Переименовать чат"
+                              onClick={e => { e.stopPropagation(); setEditingChatId(chat.id); setEditingTitle(chat.title); }}
+                            >
+                              <FiEdit2 size={15} />
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </span>
+                    <div className={styles.chatActions}>
+                      <button
+                        className={styles.shareChatBtn}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowShareModal(true);
+                        }}
+                        title="Поделиться чатом"
+                      >
+                        <FiShare2 />
+                      </button>
+                      <button
+                        className={styles.deleteChatBtn}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteChat(chat.id);
+                        }}
+                        title={t('deleteChat')}
+                      >
+                        <FiTrash2 />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className={styles.newChatBox}>
+                <input
+                  type="text"
+                  placeholder={t('chatTitle')}
+                  value={newChatTitle}
+                  onChange={(e) => setNewChatTitle(e.target.value)}
+                  className={styles.newChatInput}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleCreateChat();
+                  }}
+                />
+                <button className={styles.newChatBtn} onClick={handleCreateChat} title={t('newChat')}>
+                  <FiPlus />
+                </button>
+              </div>
+              <div className={styles.sidebarFooter}>
+                <div className={styles.userInfoSidebar}>
+                  <span className={styles.avatarSidebar}><FiUser /></span>
+                  <span className={styles.userNameSidebar}>{user?.name || t('user')}</span>
+                </div>
+                <button className={styles.logoutSidebar} onClick={logout} title={t('logout')}>
+                  <FiLogOut />
+                </button>
+              </div>
+            </motion.aside>
+          )}
+        </AnimatePresence>
+        {/* Кнопка для разворачивания sidebar */}
+        {isSidebarCollapsed && (typeof window === 'undefined' || window.innerWidth > 767) && (
+          <button
+            className={styles.sidebarExpandBtn}
+            onClick={() => setIsSidebarCollapsed(false)}
+            title="Развернуть"
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: 20,
+              zIndex: 101,
+              background: '#23232a',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '0 8px 8px 0',
+              padding: '8px 12px',
+              cursor: 'pointer'
+            }}
+          >
+            <FiChevronRight size={24} />
+          </button>
+        )}
 
         {/* Мобильное меню (гамбургер) */}
         {typeof window !== 'undefined' && window.innerWidth <= 767 && (
@@ -784,34 +909,48 @@ export default function ChatInterface() {
             <div className={styles.mobileHeader}>
               <Image src={Ai} alt="AI" width={32} height={32} style={{ borderRadius: '50%' }} />
               <span className={styles.appName}>Neironka Ai</span>
-              <button className={styles.menuBtn} onClick={() => setMobileMenuOpen(true)} title="Открыть меню">
-                <FiMenu />
-              </button>
+              <AnimatedHamburger isOpen={mobileMenuOpen} onClick={() => setMobileMenuOpen(!mobileMenuOpen)} />
             </div>
             {mobileMenuOpen && (
-              <div className={styles.mobileMenuOverlay} onClick={() => setMobileMenuOpen(false)}>
-                <div className={styles.mobileMenu} onClick={e => e.stopPropagation()}>
-                  <div className={styles.mobileMenuHeader}>
-                    <span className={styles.mobileMenuTitle}>Чаты</span>
-                    <button className={styles.mobileMenuCloseBtn} onClick={() => setMobileMenuOpen(false)} title="Закрыть меню">
-                      <FiX size={28} />
-                    </button>
-                  </div>
-                  <div className={styles.chatsList}>
-                    <div className={styles.chatsHistoryTitle}>{t('chatHistory')}</div>
-                    {chats.length === 0 && (
-                      <div className={styles.emptyChats}><FiMessageSquare /> {t('noChats')}</div>
-                    )}
-                    {chats.map((chat) => (
-                      <div
-                        key={chat.id}
-                        className={chat.id === currentChatId ? styles.chatItemActive : styles.chatItem}
-                        onClick={() => { selectChat(chat.id); setMobileMenuOpen(false); }}
-                      >
-                        <span className={styles.chatTitle}
-                          style={{ color: chatThemeLight ? '#23232a' : '#fff' }}
+              <AnimatePresence initial={false}>
+                <motion.div
+                  key="mobile-menu-overlay"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className={styles.mobileMenuOverlay}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <motion.div
+                    key="mobile-menu"
+                    initial={{ x: '100%', opacity: 0.5, scale: 0.95 }}
+                    animate={{ x: 0, opacity: 1, scale: 1 }}
+                    exit={{ x: '100%', opacity: 0.5, scale: 0.95 }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                    className={styles.mobileMenu}
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <div className={styles.mobileMenuHeader}>
+                      <span className={styles.mobileMenuTitle}>Чаты</span>
+                      <button className={styles.mobileMenuCloseBtn} onClick={() => setMobileMenuOpen(false)} title="Закрыть меню">
+                        <FiX size={28} />
+                      </button>
+                    </div>
+                    <div className={styles.chatsList}>
+                      <div className={styles.chatsHistoryTitle}>{t('chatHistory')}</div>
+                      {chats.length === 0 && (
+                        <div className={styles.emptyChats}><FiMessageSquare /> {t('noChats')}</div>
+                      )}
+                      {chats.map((chat) => (
+                        <div
+                          key={chat.id}
+                          className={chat.id === currentChatId ? styles.chatItemActive : styles.chatItem}
+                          onClick={() => { selectChat(chat.id); setMobileMenuOpen(false); }}
                         >
-                          <FiMessageSquare style={{marginRight: 6}} />{chat.title}</span>
+                          <span className={styles.chatTitle}
+                            style={{ color: chatThemeLight ? '#23232a' : '#fff' }}
+                          >
+                            <FiMessageSquare style={{marginRight: 6}} />{chat.title}</span>
                         <div className={styles.chatActions}>
                           <button
                             className={styles.shareChatBtn}
@@ -853,10 +992,11 @@ export default function ChatInterface() {
                       <FiLogOut />
                     </button>
                   </div>
-                </div>
-              </div>
-            )}
-          </>
+                </motion.div>
+              </motion.div>
+            </AnimatePresence>
+          )}
+        </>
         )}
 
         {/* Main Chat Area */}
@@ -938,39 +1078,15 @@ export default function ChatInterface() {
                             </div>
                             {/* Кнопки ссылок, если есть searchSources */}
                             {Array.isArray(msg.searchSources) && msg.searchSources.length > 0 && (
-                              <div style={{marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center'}}>
+                              <div style={{marginTop: 14, display: 'flex', gap: 8, flexWrap: 'nowrap', alignItems: 'center', overflowX: 'auto'}}>
                                 {msg.searchSources.slice(0, 4).map((source, idx) => {
                                   const processedSource = typeof source === 'string' ? {
-                                    title: new URL(source).hostname,
+                                    title: (() => { try { return new URL(source).hostname; } catch { return source; } })(),
                                     url: source,
-                                    favicon: `https://www.google.com/s2/favicons?domain=${new URL(source).hostname}`
+                                    favicon: (() => { try { return `https://www.google.com/s2/favicons?domain=${new URL(source).hostname}`; } catch { return ''; } })(),
                                   } : source;
                                   return processedSource ? (
-                                    <a
-                                      key={idx}
-                                      href={processedSource.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      style={{
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        background: '#23232a',
-                                        color: '#fff',
-                                        border: '1px solid #444',
-                                        borderRadius: 6,
-                                        padding: '3px 10px 3px 6px',
-                                        fontWeight: 500,
-                                        fontSize: 14,
-                                        textDecoration: 'none',
-                                        gap: 4,
-                                        marginRight: 4
-                                      }}
-                                    >
-                                      {processedSource.favicon && (
-                                        <img src={processedSource.favicon} alt="" width={16} height={16} style={{marginRight: 4, borderRadius: 3}} />
-                                      )}
-                                      {processedSource.title}
-                                    </a>
+                                    <SourceCard key={idx} source={processedSource} />
                                   ) : null;
                                 })}
                               </div>
@@ -1003,25 +1119,55 @@ export default function ChatInterface() {
                         </div>
                         {/* Кнопки ссылок для обычных сообщений AI */}
                         {msg.role === 'assistant' && Array.isArray(msg.searchSources) && msg.searchSources.length > 0 && (
-                          <div style={{
-                            marginTop: 14,
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                            gap: 16,
-                            width: '100%',
-                            maxWidth: 740,
-                          }}>
-                            {msg.searchSources.slice(0, 4).map((source, idx) => {
-                              const processedSource = typeof source === 'string' ? {
-                                title: (() => { try { return new URL(source).hostname; } catch { return source; } })(),
-                                url: source,
-                                favicon: (() => { try { return `https://www.google.com/s2/favicons?domain=${new URL(source).hostname}`; } catch { return ''; } })(),
-                              } : source;
-                              return processedSource ? (
-                                <SourceCard key={idx} source={processedSource} />
-                              ) : null;
-                            })}
-                          </div>
+                          (() => {
+                            const isMobile = typeof window !== 'undefined' && window.innerWidth <= 480;
+                            return isMobile ? (
+                              <div style={{
+                                marginTop: 14,
+                                display: 'flex',
+                                flexDirection: 'row',
+                                overflowX: 'auto',
+                                gap: 8,
+                                width: '100%',
+                                paddingBottom: 4,
+                              }}>
+                                {msg.searchSources.slice(0, 4).map((source, idx) => {
+                                  const processedSource = typeof source === 'string' ? {
+                                    title: (() => { try { return new URL(source).hostname; } catch { return source; } })(),
+                                    url: source,
+                                    favicon: (() => { try { return `https://www.google.com/s2/favicons?domain=${new URL(source).hostname}`; } catch { return ''; } })(),
+                                  } : source;
+                                  return processedSource ? (
+                                    <SourceCard key={idx} source={processedSource} />
+                                  ) : null;
+                                })}
+                              </div>
+                            ) : (
+                              <div style={{
+                                marginTop: 14,
+                                display: 'flex',
+                                flexDirection: 'row',
+                                gap: 16,
+                                width: '100%',
+                                maxWidth: 740,
+                                justifyContent: 'flex-start',
+                                alignItems: 'stretch',
+                                flexWrap: 'nowrap',
+                                overflowX: 'auto',
+                              }}>
+                                {msg.searchSources.slice(0, 4).map((source, idx) => {
+                                  const processedSource = typeof source === 'string' ? {
+                                    title: (() => { try { return new URL(source).hostname; } catch { return source; } })(),
+                                    url: source,
+                                    favicon: (() => { try { return `https://www.google.com/s2/favicons?domain=${new URL(source).hostname}`; } catch { return ''; } })(),
+                                  } : source;
+                                  return processedSource ? (
+                                    <SourceCard key={idx} source={processedSource} />
+                                  ) : null;
+                                })}
+                              </div>
+                            );
+                          })()
                         )}
                         {msg.role === 'assistant' && !msg.reasoning && msg.id === lastAssistantId && (
                           <div style={{display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 2}}>
@@ -1129,21 +1275,50 @@ export default function ChatInterface() {
           </form>
 
           {/* Кнопки под input в form */}
-          <div className={styles.bottomControls}>
-            <div className={styles.leftControls}>
+          <div className={styles.bottomControls} style={isMobile ? { padding: '6px 0', gap: 0 } : {}}>
+            <div className={styles.leftControls} style={isMobile ? { gap: 0 } : {}}>
               {/* DeepThink (мышление) */}
-              
               <button
                 type="button"
                 className={styles.controlBtn + (currentChat?.reasoningEnabled ? ' ' + styles.controlBtnActive : '')}
                 onClick={handleToggleReasoning}
                 disabled={!currentChat}
                 title={t('deepThinkTooltip')}
+                style={isMobile ? {
+                  flex: currentChat?.reasoningEnabled ? 'unset' : 1,
+                  minWidth: currentChat?.reasoningEnabled ? 90 : 0,
+                  justifyContent: 'center',
+                  padding: 0,
+                  height: 44
+                } : {}}
               >
-                <div style={{display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: isMobile ? 'center' : 'flex-start', gap: 4, width: isMobile ? '100%' : undefined}}>
-                  <FiZap />
-                  <span style={{fontSize: '0.9em', marginLeft: 4}}>{t('deepThink')}</span>
-                </div>
+                <FiZap size={isMobile ? 24 : 18} />
+                {(!isMobile || currentChat?.reasoningEnabled) && (
+                  <AnimatePresence initial={false}>
+                    {(!isMobile || currentChat?.reasoningEnabled) && (
+                      <motion.span
+                        key={isMobile ? 'mobile-reasoning' : 'desktop-reasoning'}
+                        initial={{ opacity: 0, x: -12, maxWidth: 0 }}
+                        animate={{ opacity: 1, x: 0, maxWidth: 60 }}
+                        exit={{ opacity: 0, x: -12, maxWidth: 0 }}
+                        transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+                        style={{
+                          fontSize: isMobile ? 11 : '0.9em',
+                          marginLeft: 4,
+                          fontWeight: 500,
+                          lineHeight: 1.1,
+                          whiteSpace: 'nowrap',
+                          display: 'inline-block',
+                          overflow: 'hidden',
+                          pointerEvents: isMobile && !currentChat?.reasoningEnabled ? 'none' : 'auto',
+                          verticalAlign: 'middle',
+                        }}
+                      >
+                        {t('deepThink')}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                )}
               </button>
               {/* Веб-поиск */}
               <button
@@ -1152,14 +1327,44 @@ export default function ChatInterface() {
                 onClick={handleToggleWebSearch}
                 disabled={!currentChat}
                 title={t('webSearchTooltip')}
+                style={isMobile ? {
+                  flex: currentChat?.webSearchEnabled ? 'unset' : 1,
+                  minWidth: currentChat?.webSearchEnabled ? 90 : 0,
+                  justifyContent: 'center',
+                  padding: 0,
+                  height: 44
+                } : {}}
               >
-                <div style={{display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: isMobile ? 'center' : 'flex-start', gap: 4, width: isMobile ? '100%' : undefined}}>
-                  <FiSearch />
-                  <span style={{fontSize: '0.9em', marginLeft: 4}}>{t('webSearch')}</span>
-                </div>
+                <FiSearch size={isMobile ? 24 : 18} />
+                {(!isMobile || currentChat?.webSearchEnabled) && (
+                  <AnimatePresence initial={false}>
+                    {(!isMobile || currentChat?.webSearchEnabled) && (
+                      <motion.span
+                        key={isMobile ? 'mobile-websearch' : 'desktop-websearch'}
+                        initial={{ opacity: 0, x: -12, maxWidth: 0 }}
+                        animate={{ opacity: 1, x: 0, maxWidth: 60 }}
+                        exit={{ opacity: 0, x: -12, maxWidth: 0 }}
+                        transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+                        style={{
+                          fontSize: isMobile ? 11 : '0.9em',
+                          marginLeft: 4,
+                          fontWeight: 500,
+                          lineHeight: 1.1,
+                          whiteSpace: 'nowrap',
+                          display: 'inline-block',
+                          overflow: 'hidden',
+                          pointerEvents: isMobile && !currentChat?.webSearchEnabled ? 'none' : 'auto',
+                          verticalAlign: 'middle',
+                        }}
+                      >
+                        {t('webSearch')}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                )}
               </button>
               {/* Выбор модели */}
-              <div className={styles.modelSelector}>
+              <div className={styles.modelSelector} style={isMobile ? { display: 'none' } : {}}>
                 <Image src={Ai} alt="AI" width={24} height={24} style={{ borderRadius: '50%' }} />
                 {!isMobile && (
                   <select
@@ -1183,19 +1388,21 @@ export default function ChatInterface() {
                 }}
                 disabled={fileLoading || isLoading || currentChat?.webSearchEnabled}
                 title={currentChat?.webSearchEnabled ? t('uploadDisabled') : t('uploadFile')}
+                style={isMobile ? { flex: 1, minWidth: 0, justifyContent: 'center', padding: 0, height: 44 } : {}}
               >
-                <FiUpload />
+                <FiUpload size={isMobile ? 24 : 18} />
               </button>
             </div>
-            <div className={styles.rightControls}>
+            <div className={styles.rightControls} style={isMobile ? { gap: 0 } : {}}>
               {/* Настройки */}
               <button
                 type="button"
                 className={styles.controlBtn}
                 onClick={() => setShowSettings(true)}
                 title={t('settingsTooltip')}
+                style={isMobile ? { flex: 1, minWidth: 0, justifyContent: 'center', padding: 0, height: 44 } : {}}
               >
-                <FiSettings />
+                <FiSettings size={isMobile ? 24 : 18} />
               </button>
             </div>
           </div>

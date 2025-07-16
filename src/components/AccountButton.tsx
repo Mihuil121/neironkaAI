@@ -5,6 +5,8 @@ import { FiUser, FiChevronDown } from 'react-icons/fi';
 import styles from './AccountButton.module.scss';
 import SettingsModal from './SettingsModal';
 import { useAuthStore } from '@/store/useAuthStore';
+import AccountAvatar from './AccountAvatar';
+import AccountName from './AccountName';
 
 export default function AccountButton() {
   const [open, setOpen] = useState(false);
@@ -13,8 +15,8 @@ export default function AccountButton() {
   return (
     <>
       <button className={styles.accountBtn} onClick={() => setOpen(true)}>
-        <span className={styles.avatar}><FiUser /></span>
-        <span className={styles.name}>{user?.name || 'Аккаунт'}</span>
+        <AccountAvatar />
+        <AccountName name={user?.name} />
         <FiChevronDown className={styles.chevron} />
       </button>
       <SettingsModal open={open} onClose={() => setOpen(false)} />
