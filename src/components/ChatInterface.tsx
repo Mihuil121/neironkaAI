@@ -760,7 +760,7 @@ export default function ChatInterface() {
                 <Image src={Ai} alt="AI" width={32} height={32} style={{ borderRadius: '50%' }} />
                 <span
                   className={styles.appName}
-                  style={{ color: chatThemeLight ? '#ededed' : '#ededed' }}
+                  style={{ color: chatThemeLight ? '#000' : '#ededed' }}
                 >
                   Neironka Ai
                 </span>
@@ -908,7 +908,7 @@ export default function ChatInterface() {
           <>
             <div className={styles.mobileHeader}>
               <Image src={Ai} alt="AI" width={32} height={32} style={{ borderRadius: '50%' }} />
-              <span className={styles.appName}>Neironka Ai</span>
+              <span className={styles.appName} style={{ color: chatThemeLight ? '#000' : '#ededed' }}>Neironka Ai</span>
               <AnimatedHamburger isOpen={mobileMenuOpen} onClick={() => setMobileMenuOpen(!mobileMenuOpen)} />
             </div>
             {mobileMenuOpen && (
