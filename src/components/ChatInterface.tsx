@@ -15,7 +15,7 @@ import { FaRobot } from 'react-icons/fa';
 import Tesseract from 'tesseract.js';
 import { supabase } from '@/lib/supabaseClient';
 import Image from 'next/image';
-import Ai from '../image/AI.png'
+import AnimatedBotBall from './AnimatedBotBall';
 import mammoth from 'mammoth';
 import { useTheme } from 'next-themes';
 
@@ -51,10 +51,6 @@ async function processChunksWithLimit<T, R>(chunks: T[], handler: (chunk: T, i: 
   await Promise.all(workers);
   return results;
 }
-
-const isMobile = typeof window !== 'undefined' && window.innerWidth <= 767;
-
-const isVerySmall = typeof window !== 'undefined' && window.innerWidth <= 420;
 
 function ThemeToggle() {
   const { theme, setTheme } = useTheme();
@@ -267,8 +263,13 @@ export default function ChatInterface() {
   const [chunkProgress, setChunkProgress] = useState<{stage: string, current: number, total: number} | null>(null);
   const [editingChatId, setEditingChatId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
+  const [mobileBtnHover, setMobileBtnHover] = useState<string | null>(null);
+  const [mobileBtnActive, setMobileBtnActive] = useState<string | null>(null);
 
   const { t, language } = useTranslation();
+
+  const isMobile = useMediaQuery('(max-width: 767px)');
+  const isVerySmall = useMediaQuery('(max-width: 420px)');
 
   // Выбранный чат
   const currentChat = chats.find((c) => c.id === currentChatId);
@@ -746,168 +747,136 @@ export default function ChatInterface() {
     <>
       <div className={styles.wrapper} data-chat-theme={chatThemeLight ? 'light' : 'dark'}>
         {/* Sidebar (desktop/tablet only) */}
-        <AnimatePresence initial={false}>
-          {(!isSidebarCollapsed && (typeof window === 'undefined' || window.innerWidth > 767)) && (
-            <motion.aside
-              key="sidebar"
-              initial={{ x: -320, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: -320, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className={styles.sidebar}
+        <aside className={styles.sidebar + (isSidebarCollapsed ? ' ' + styles.sidebarCollapsed : '')}>
+          <div className={styles.sidebarHeader}>
+            <AnimatedBotBall size={32} />
+            <span
+              className={styles.appName}
+              style={{ color: chatThemeLight ? '#000' : '#ededed' }}
             >
-              <div className={styles.sidebarHeader}>
-                <Image src={Ai} alt="AI" width={32} height={32} style={{ borderRadius: '50%' }} />
-                <span
-                  className={styles.appName}
-                  style={{ color: chatThemeLight ? '#000' : '#ededed' }}
+              Neironka Ai
+            </span>
+            <button
+              className={styles.collapseBtn}
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              title={isSidebarCollapsed ? 'Развернуть' : 'Свернуть'}
+            >
+              {isSidebarCollapsed ? <FiChevronRight /> : <FiChevronLeft />}
+            </button>
+          </div>
+          <div className={styles.chatsList}>
+            <div className={styles.chatsHistoryTitle}>{t('chatHistory')}</div>
+            {chats.length === 0 && (
+              <div className={styles.emptyChats}><FiMessageSquare /> {t('noChats')}</div>
+            )}
+            {chats.map((chat) => (
+              <div
+                key={chat.id}
+                className={
+                  chat.id === currentChatId
+                    ? styles.chatItemActive
+                    : styles.chatItem
+                }
+                onClick={() => selectChat(chat.id)}
+              >
+                <span className={styles.chatTitle}
+                  style={{ color: chatThemeLight ? '#23232a' : '#fff' }}
                 >
-                  Neironka Ai
-                </span>
-                <button
-                  className={styles.collapseBtn}
-                  onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                  title={isSidebarCollapsed ? 'Развернуть' : 'Свернуть'}
-                >
-                  {isSidebarCollapsed ? <FiChevronRight /> : <FiChevronLeft />}
-                </button>
-              </div>
-              <div className={styles.chatsList}>
-                <div className={styles.chatsHistoryTitle}>{t('chatHistory')}</div>
-                {chats.length === 0 && (
-                  <div className={styles.emptyChats}><FiMessageSquare /> {t('noChats')}</div>
-                )}
-                {chats.map((chat) => (
-                  <div
-                    key={chat.id}
-                    className={
-                      chat.id === currentChatId
-                        ? styles.chatItemActive
-                        : styles.chatItem
-                    }
-                    onClick={() => selectChat(chat.id)}
-                  >
-                    <span className={styles.chatTitle}
-                      style={{ color: chatThemeLight ? '#23232a' : '#fff' }}
-                    >
-                      <FiMessageSquare style={{marginRight: 6}} />
-                      {editingChatId === chat.id ? (
-                        <input
-                          type="text"
-                          value={editingTitle}
-                          autoFocus
-                          onChange={e => setEditingTitle(e.target.value)}
-                          onBlur={() => {
-                            if (editingTitle.trim() && editingTitle !== chat.title) renameChat(chat.id, editingTitle.trim());
-                            setEditingChatId(null);
-                          }}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') {
-                              if (editingTitle.trim() && editingTitle !== chat.title) renameChat(chat.id, editingTitle.trim());
-                              setEditingChatId(null);
-                            } else if (e.key === 'Escape') {
-                              setEditingChatId(null);
-                            }
-                          }}
-                          className={styles.renameInput}
-                          style={{fontSize: '1em', padding: '2px 6px', borderRadius: 4, border: '1px solid #888', width: '80%'}}
-                        />
-                      ) : (
-                        <>
-                          {chat.title}
-                          {chat.id === currentChatId && (
-                            <button
-                              className={styles.renameBtn}
-                              style={{marginLeft: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#aaa'}}
-                              title="Переименовать чат"
-                              onClick={e => { e.stopPropagation(); setEditingChatId(chat.id); setEditingTitle(chat.title); }}
-                            >
-                              <FiEdit2 size={15} />
-                            </button>
-                          )}
-                        </>
+                  <FiMessageSquare style={{marginRight: 6}} />
+                  {editingChatId === chat.id ? (
+                    <input
+                      type="text"
+                      value={editingTitle}
+                      autoFocus
+                      onChange={e => setEditingTitle(e.target.value)}
+                      onBlur={() => {
+                        if (editingTitle.trim() && editingTitle !== chat.title) renameChat(chat.id, editingTitle.trim());
+                        setEditingChatId(null);
+                      }}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          if (editingTitle.trim() && editingTitle !== chat.title) renameChat(chat.id, editingTitle.trim());
+                          setEditingChatId(null);
+                        } else if (e.key === 'Escape') {
+                          setEditingChatId(null);
+                        }
+                      }}
+                      className={styles.renameInput}
+                      style={{fontSize: '1em', padding: '2px 6px', borderRadius: 4, border: '1px solid #888', width: '80%'}}
+                    />
+                  ) : (
+                    <>
+                      {chat.title}
+                      {chat.id === currentChatId && (
+                        <button
+                          className={styles.renameBtn}
+                          style={{marginLeft: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#aaa'}}
+                          title="Переименовать чат"
+                          onClick={e => { e.stopPropagation(); setEditingChatId(chat.id); setEditingTitle(chat.title); }}
+                        >
+                          <FiEdit2 size={15} />
+                        </button>
                       )}
-                    </span>
-                    <div className={styles.chatActions}>
-                      <button
-                        className={styles.shareChatBtn}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowShareModal(true);
-                        }}
-                        title="Поделиться чатом"
-                      >
-                        <FiShare2 />
-                      </button>
-                      <button
-                        className={styles.deleteChatBtn}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteChat(chat.id);
-                        }}
-                        title={t('deleteChat')}
-                      >
-                        <FiTrash2 />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className={styles.newChatBox}>
-                <input
-                  type="text"
-                  placeholder={t('chatTitle')}
-                  value={newChatTitle}
-                  onChange={(e) => setNewChatTitle(e.target.value)}
-                  className={styles.newChatInput}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleCreateChat();
-                  }}
-                />
-                <button className={styles.newChatBtn} onClick={handleCreateChat} title={t('newChat')}>
-                  <FiPlus />
-                </button>
-              </div>
-              <div className={styles.sidebarFooter}>
-                <div className={styles.userInfoSidebar}>
-                  <span className={styles.avatarSidebar}><FiUser /></span>
-                  <span className={styles.userNameSidebar}>{user?.name || t('user')}</span>
+                    </>
+                  )}
+                </span>
+                <div className={styles.chatActions}>
+                  <button
+                    className={styles.shareChatBtn}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowShareModal(true);
+                    }}
+                    title="Поделиться чатом"
+                  >
+                    <FiShare2 />
+                  </button>
+                  <button
+                    className={styles.deleteChatBtn}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteChat(chat.id);
+                    }}
+                    title={t('deleteChat')}
+                  >
+                    <FiTrash2 />
+                  </button>
                 </div>
-                <button className={styles.logoutSidebar} onClick={logout} title={t('logout')}>
-                  <FiLogOut />
-                </button>
               </div>
-            </motion.aside>
-          )}
-        </AnimatePresence>
+            ))}
+          </div>
+          <div className={styles.newChatBox}>
+            <input
+              type="text"
+              placeholder={t('chatTitle')}
+              value={newChatTitle}
+              onChange={(e) => setNewChatTitle(e.target.value)}
+              className={styles.newChatInput}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleCreateChat();
+              }}
+            />
+            <button className={styles.newChatBtn} onClick={handleCreateChat} title={t('newChat')}>
+              <FiPlus />
+            </button>
+          </div>
+          <div className={styles.sidebarFooter}>
+            <div className={styles.userInfoSidebar}>
+              <span className={styles.avatarSidebar}><FiUser /></span>
+              <span className={styles.userNameSidebar}>{user?.name || t('user')}</span>
+            </div>
+            <button className={styles.logoutSidebar} onClick={logout} title={t('logout')}>
+              <FiLogOut />
+            </button>
+          </div>
+        </aside>
         {/* Кнопка для разворачивания sidebar */}
-        {isSidebarCollapsed && (typeof window === 'undefined' || window.innerWidth > 767) && (
-          <button
-            className={styles.sidebarExpandBtn}
-            onClick={() => setIsSidebarCollapsed(false)}
-            title="Развернуть"
-            style={{
-              position: 'absolute',
-              left: 0,
-              top: 20,
-              zIndex: 101,
-              background: '#23232a',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '0 8px 8px 0',
-              padding: '8px 12px',
-              cursor: 'pointer'
-            }}
-          >
-            <FiChevronRight size={24} />
-          </button>
-        )}
 
         {/* Мобильное меню (гамбургер) */}
         {typeof window !== 'undefined' && window.innerWidth <= 767 && (
           <>
             <div className={styles.mobileHeader}>
-              <Image src={Ai} alt="AI" width={32} height={32} style={{ borderRadius: '50%' }} />
+              <AnimatedBotBall size={32} />
               <span className={styles.appName} style={{ color: chatThemeLight ? '#000' : '#ededed' }}>Neironka Ai</span>
               <AnimatedHamburger isOpen={mobileMenuOpen} onClick={() => setMobileMenuOpen(!mobileMenuOpen)} />
             </div>
@@ -1004,7 +973,7 @@ export default function ChatInterface() {
           <div className={styles.messagesContainer}>
             {!currentChat || currentChat.messages.length === 0 ? (
               <div className={styles.welcomeMessage}>
-                <div className={styles.welcomeIcon}><Image src={Ai} alt="AI" width={64} height={64} style={{ borderRadius: '50%' }} /></div>
+                <div className={styles.welcomeIcon}><AnimatedBotBall size={64} /></div>
                 <h2>{t('welcome')}</h2>
                 <p>{t('welcomeSubtitle')}</p>
               </div>
@@ -1018,7 +987,7 @@ export default function ChatInterface() {
                   {/* Иконка только для бота, сверху */}
                   {msg.role === "assistant" && (
                     <div className={styles.messageAvatar}>
-                      <Image src={Ai} alt="AI" width={40} height={40} style={{ borderRadius: '50%' }} />
+                      <AnimatedBotBall size={40} />
                     </div>
                   )}
                   <div className={styles.messageContent}>
@@ -1209,7 +1178,7 @@ export default function ChatInterface() {
             {isThinking || isLoading ? (
               <div className={`${styles.message} ${styles.aiMessage}`}>
                 <div className={styles.messageAvatar}>
-                  <Image src={Ai} alt="AI" width={40} height={40} style={{ borderRadius: '50%' }} />
+                  <AnimatedBotBall size={40} />
                 </div>
                 <div className={styles.messageContent}>
                   <ProgressStage isThinking={isThinking} chunkProgress={chunkProgress} isLoading={isLoading} reasoningEnabled={currentChat?.reasoningEnabled} webSearchEnabled={currentChat?.webSearchEnabled} />
@@ -1236,137 +1205,155 @@ export default function ChatInterface() {
           )}
 
           {/* Input-бар */}
+          {isMobile && (
+            <div
+              className={styles.mobileActions}
+              style={{
+                background: chatThemeLight ? '#fff7ed' : '#23232a',
+                borderRadius: 12,
+                boxShadow: chatThemeLight
+                  ? '0 2px 8px rgba(245, 158, 66, 0.08)'
+                  : '0 2px 12px rgba(0,0,0,0.10)',
+                margin: '0 0 12px 0',
+                padding: '8px 8px 8px 8px',
+                transition: 'background 0.28s cubic-bezier(0.4,0,0.2,1), box-shadow 0.28s cubic-bezier(0.4,0,0.2,1)',
+              }}
+            >
+              {[
+                { key: 'reason', onClick: handleToggleReasoning, icon: <FiZap size={20} />, label: t('deepThink'), active: currentChat?.reasoningEnabled },
+                { key: 'web', onClick: handleToggleWebSearch, icon: <FiSearch size={20} />, label: t('webSearch'), active: currentChat?.webSearchEnabled },
+                { key: 'settings', onClick: () => setShowSettings(true), icon: <FiSettings size={20} />, label: t('settings'), active: false },
+              ].map(btn => {
+                // Определяем стили для светлой и тёмной темы
+                const isLight = chatThemeLight;
+                const isHovered = mobileBtnHover === btn.key;
+                const isPressed = mobileBtnActive === btn.key;
+                let bg = isLight ? '#fff7ed' : '#23232a';
+                let color = isLight ? '#f59e42' : '#f59e42';
+                let border = '1.5px solid #f59e42';
+                if (isHovered || isPressed || btn.active) {
+                  bg = '#f59e42';
+                  color = '#fff';
+                  border = '1.5px solid #f59e42';
+                }
+                return (
+                  <button
+                    key={btn.key}
+                    type="button"
+                    className={styles.controlBtn}
+                    onClick={btn.onClick}
+                    disabled={!currentChat && btn.key !== 'settings'}
+                    title={btn.label}
+                    style={{
+                      background: bg,
+                      color,
+                      border,
+                      boxShadow: isHovered || isPressed ? '0 4px 16px rgba(245,158,66,0.18)' : '0 2px 8px rgba(245,158,66,0.08)',
+                      transform: isPressed ? 'scale(0.93)' : isHovered ? 'scale(1.04)' : 'none',
+                      transition: 'background 0.28s cubic-bezier(0.4,0,0.2,1), color 0.28s cubic-bezier(0.4,0,0.2,1), border 0.28s cubic-bezier(0.4,0,0.2,1), box-shadow 0.28s cubic-bezier(0.4,0,0.2,1), transform 0.18s cubic-bezier(0.4,0,0.2,1)',
+                      fontWeight: 500,
+                    }}
+                    onMouseEnter={() => setMobileBtnHover(btn.key)}
+                    onMouseLeave={() => { setMobileBtnHover(null); setMobileBtnActive(null); }}
+                    onMouseDown={() => setMobileBtnActive(btn.key)}
+                    onMouseUp={() => setMobileBtnActive(null)}
+                  >
+                    {btn.icon}
+                    <span style={{ marginLeft: 6 }}>{btn.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
           <form onSubmit={handleSubmit} className={styles.chatInputBar}>
             {/* Файл (чип) */}
             {uploadedFile && (
-              <span className={styles.fileChip}>
-                <FiUpload className={styles.fileChipIcon} />
-                <span className={styles.fileName}>{uploadedFile.name}</span>
-                <button type="button" className={styles.fileChipRemove} onClick={handleRemoveFile} title={t('fileRemove')}>
-                  <FiX />
-                </button>
+              <span className={styles.fileChipWrapper}>
+                <span className={styles.fileChip}>
+                  <FiUpload className={styles.fileChipIcon} />
+                  <span className={styles.fileName}>{uploadedFile.name}</span>
+                  <button type="button" className={styles.fileChipRemove} onClick={handleRemoveFile} title={t('fileRemove')}>
+                    <FiX />
+                  </button>
+                </span>
               </span>
             )}
-            {/* Input */}
-            <textarea
-              className={styles.inputBarInput}
-              value={message}
-              onChange={e => setMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder={uploadedFile ? `Введите вопрос о файле "${uploadedFile.name}"...` : (currentChat && models.find(m => m.id === currentChat.modelId)?.name ? `${t('message')} ${models.find(m => m.id === currentChat.modelId)?.name}` : t('messagePlaceholder'))}
-              disabled={isLoading || isThinking || !currentChatId}
-              rows={1}
-              style={{ resize: 'none', overflow: 'hidden' }}
-              onInput={(e) => {
-                const target = e.target as HTMLTextAreaElement;
-                target.style.height = 'auto';
-                target.style.height = Math.min(target.scrollHeight, 120) + 'px';
-              }}
-            />
-            {/* Send */}
-            <button
-              type="submit"
-              className={styles.sendBtn}
-              disabled={(!message.trim() && !uploadedFile) || isLoading || isThinking || !currentChatId}
-              title={t('send')}
-            >
-              <FiSend />
-            </button>
+            <div className={styles.inputRow}>
+              <textarea
+                className={styles.inputBarInput}
+                value={message}
+                onChange={e => setMessage(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder={uploadedFile ? `Введите вопрос о файле \"${uploadedFile.name}\"...` : (currentChat && models.find(m => m.id === currentChat.modelId)?.name ? `${t('message')} ${models.find(m => m.id === currentChat.modelId)?.name}` : t('messagePlaceholder'))}
+                disabled={isLoading || isThinking || !currentChatId}
+                rows={1}
+                style={{
+                  resize: 'none',
+                  overflow: 'hidden',
+                  minHeight: isMobile ? 40 : 44,
+                  maxHeight: isMobile ? 90 : 120,
+                  fontSize: isMobile ? '1.05rem' : '1.13rem',
+                  padding: isMobile ? '12px 10px' : '18px 28px',
+                  textAlign: 'center'
+                }}
+                onInput={e => {
+                  const target = e.target as HTMLTextAreaElement;
+                  target.style.height = 'auto';
+                  target.style.height = Math.min(target.scrollHeight, isMobile ? 90 : 120) + 'px';
+                }}
+              />
+              {/* Upload внутри input-bar */}
+              <button
+                type="button"
+                className={styles.uploadBtn}
+                onClick={() => { if (!currentChat?.webSearchEnabled) setShowUploadDropdown(true); }}
+                disabled={fileLoading || isLoading || currentChat?.webSearchEnabled}
+                title={currentChat?.webSearchEnabled ? t('uploadDisabled') : t('uploadFile')}
+                style={{marginLeft: 4, marginRight: 4}}
+              >
+                <FiUpload size={20} />
+              </button>
+              {/* Send */}
+              <button
+                type="submit"
+                className={styles.sendBtn}
+                disabled={(!message.trim() && !uploadedFile) || isLoading || isThinking || !currentChatId}
+                title={t('send')}
+              >
+                <FiSend />
+              </button>
+            </div>
           </form>
 
           {/* Кнопки под input в form */}
-          <div className={styles.bottomControls} style={isMobile ? { padding: '6px 0', gap: 0 } : {}}>
-            <div className={styles.leftControls} style={isMobile ? { gap: 0 } : {}}>
-              {/* DeepThink (мышление) */}
-              <button
-                type="button"
-                className={styles.controlBtn + (currentChat?.reasoningEnabled ? ' ' + styles.controlBtnActive : '')}
-                onClick={handleToggleReasoning}
-                disabled={!currentChat}
-                title={t('deepThinkTooltip')}
-                style={isMobile ? {
-                  flex: currentChat?.reasoningEnabled ? 'unset' : 1,
-                  minWidth: currentChat?.reasoningEnabled ? 90 : 0,
-                  justifyContent: 'center',
-                  padding: 0,
-                  height: 44
-                } : {}}
-              >
-                <FiZap size={isMobile ? 24 : 18} />
-                {(!isMobile || currentChat?.reasoningEnabled) && (
-                  <AnimatePresence initial={false}>
-                    {(!isMobile || currentChat?.reasoningEnabled) && (
-                      <motion.span
-                        key={isMobile ? 'mobile-reasoning' : 'desktop-reasoning'}
-                        initial={{ opacity: 0, x: -12, maxWidth: 0 }}
-                        animate={{ opacity: 1, x: 0, maxWidth: 60 }}
-                        exit={{ opacity: 0, x: -12, maxWidth: 0 }}
-                        transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
-                        style={{
-                          fontSize: isMobile ? 11 : '0.9em',
-                          marginLeft: 4,
-                          fontWeight: 500,
-                          lineHeight: 1.1,
-                          whiteSpace: 'nowrap',
-                          display: 'inline-block',
-                          overflow: 'hidden',
-                          pointerEvents: isMobile && !currentChat?.reasoningEnabled ? 'none' : 'auto',
-                          verticalAlign: 'middle',
-                        }}
-                      >
-                        {t('deepThink')}
-                      </motion.span>
-                    )}
-                  </AnimatePresence>
-                )}
-              </button>
-              {/* Веб-поиск */}
-              <button
-                type="button"
-                className={styles.controlBtn + (currentChat?.webSearchEnabled ? ' ' + styles.controlBtnActive : '')}
-                onClick={handleToggleWebSearch}
-                disabled={!currentChat}
-                title={t('webSearchTooltip')}
-                style={isMobile ? {
-                  flex: currentChat?.webSearchEnabled ? 'unset' : 1,
-                  minWidth: currentChat?.webSearchEnabled ? 90 : 0,
-                  justifyContent: 'center',
-                  padding: 0,
-                  height: 44
-                } : {}}
-              >
-                <FiSearch size={isMobile ? 24 : 18} />
-                {(!isMobile || currentChat?.webSearchEnabled) && (
-                  <AnimatePresence initial={false}>
-                    {(!isMobile || currentChat?.webSearchEnabled) && (
-                      <motion.span
-                        key={isMobile ? 'mobile-websearch' : 'desktop-websearch'}
-                        initial={{ opacity: 0, x: -12, maxWidth: 0 }}
-                        animate={{ opacity: 1, x: 0, maxWidth: 60 }}
-                        exit={{ opacity: 0, x: -12, maxWidth: 0 }}
-                        transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
-                        style={{
-                          fontSize: isMobile ? 11 : '0.9em',
-                          marginLeft: 4,
-                          fontWeight: 500,
-                          lineHeight: 1.1,
-                          whiteSpace: 'nowrap',
-                          display: 'inline-block',
-                          overflow: 'hidden',
-                          pointerEvents: isMobile && !currentChat?.webSearchEnabled ? 'none' : 'auto',
-                          verticalAlign: 'middle',
-                        }}
-                      >
-                        {t('webSearch')}
-                      </motion.span>
-                    )}
-                  </AnimatePresence>
-                )}
-              </button>
-              {/* Выбор модели */}
-              <div className={styles.modelSelector} style={isMobile ? { display: 'none' } : {}}>
-                <Image src={Ai} alt="AI" width={24} height={24} style={{ borderRadius: '50%' }} />
-                {!isMobile && (
+          {!isMobile && (
+            <div className={styles.bottomControls}>
+              <div className={styles.leftControls}>
+                {/* DeepThink (мышление) */}
+                <button
+                  type="button"
+                  className={styles.controlBtn + (currentChat?.reasoningEnabled ? ' ' + styles.controlBtnActive : '')}
+                  onClick={handleToggleReasoning}
+                  disabled={!currentChat}
+                  title={t('deepThinkTooltip')}
+                >
+                  <FiZap size={18} />
+                  <span>{t('deepThink')}</span>
+                </button>
+                {/* Веб-поиск */}
+                <button
+                  type="button"
+                  className={styles.controlBtn + (currentChat?.webSearchEnabled ? ' ' + styles.controlBtnActive : '')}
+                  onClick={handleToggleWebSearch}
+                  disabled={!currentChat}
+                  title={t('webSearchTooltip')}
+                >
+                  <FiSearch size={18} />
+                  <span>{t('webSearch')}</span>
+                </button>
+                {/* Выбор модели */}
+                <div className={styles.modelSelector}>
+                  <AnimatedBotBall size={24} />
                   <select
                     className={styles.modelSelect}
                     value={currentChat?.modelId || ''}
@@ -1377,35 +1364,31 @@ export default function ChatInterface() {
                       <option key={model.id} value={model.id}>{model.name}</option>
                     ))}
                   </select>
-                )}
+                </div>
+
               </div>
-              {/* Upload */}
-              <button
-                type="button"
-                className={styles.controlBtn}
-                onClick={() => {
-                  if (!currentChat?.webSearchEnabled) setShowUploadDropdown(true);
-                }}
-                disabled={fileLoading || isLoading || currentChat?.webSearchEnabled}
-                title={currentChat?.webSearchEnabled ? t('uploadDisabled') : t('uploadFile')}
-                style={isMobile ? { flex: 1, minWidth: 0, justifyContent: 'center', padding: 0, height: 44 } : {}}
-              >
-                <FiUpload size={isMobile ? 24 : 18} />
-              </button>
+              <div className={styles.rightControls}>
+                {/* Настройки */}
+                <button
+                  type="button"
+                  className={styles.controlBtn}
+                  onClick={() => setShowSettings(true)}
+                  title={t('settings')}
+                >
+                  <FiSettings size={18} />
+                </button>
+                {/* Поделиться */}
+                <button
+                  type="button"
+                  className={styles.controlBtn}
+                  onClick={() => setShowShareModal(true)}
+                  title="Поделиться"
+                >
+                  <FiShare2 size={18} />
+                </button>
+              </div>
             </div>
-            <div className={styles.rightControls} style={isMobile ? { gap: 0 } : {}}>
-              {/* Настройки */}
-              <button
-                type="button"
-                className={styles.controlBtn}
-                onClick={() => setShowSettings(true)}
-                title={t('settingsTooltip')}
-                style={isMobile ? { flex: 1, minWidth: 0, justifyContent: 'center', padding: 0, height: 44 } : {}}
-              >
-                <FiSettings size={isMobile ? 24 : 18} />
-              </button>
-            </div>
-          </div>
+          )}
 
           <input
             type="file"

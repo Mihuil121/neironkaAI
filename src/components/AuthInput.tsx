@@ -1,4 +1,5 @@
 import React from 'react';
+import styles from './AuthModal.module.scss';
 
 interface AuthInputProps {
   label: string;
@@ -13,7 +14,7 @@ interface AuthInputProps {
 
 export default function AuthInput({ label, type, id, name, value, onChange, required, placeholder }: AuthInputProps) {
   return (
-    <div className="auth-input-group">
+    <div className={styles.inputGroup}>
       <label htmlFor={id}>{label}</label>
       <input
         type={type}
@@ -23,6 +24,7 @@ export default function AuthInput({ label, type, id, name, value, onChange, requ
         onChange={onChange}
         required={required}
         placeholder={placeholder}
+        className={styles.input}
       />
     </div>
   );

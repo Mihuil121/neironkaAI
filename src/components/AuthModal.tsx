@@ -6,6 +6,7 @@ import styles from './AuthModal.module.scss';
 import AuthModalHeader from './AuthModalHeader';
 import AuthInput from './AuthInput';
 import AuthError from './AuthError';
+import { FiX } from 'react-icons/fi';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -45,6 +46,9 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   return (
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+        <button className={styles.closeButton} onClick={onClose} aria-label="Закрыть">
+          <FiX size={28} />
+        </button>
         <AuthModalHeader
           isLogin={isLogin}
           onSwitch={() => {
@@ -52,7 +56,6 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
             setFormData({ email: '', password: '', name: '' });
             clearError();
           }}
-          onClose={onClose}
         />
         <form onSubmit={handleSubmit} className={styles.form}>
           {!isLogin && (
