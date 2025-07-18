@@ -970,7 +970,7 @@ export default function ChatInterface() {
 
         {/* Main Chat Area */}
         <main className={styles.chatContainer}>
-          <div className={styles.messagesContainer}>
+          <div className={styles.messagesContainer} style={isMobile ? { paddingBottom: 130 } : {}}>
             {!currentChat || currentChat.messages.length === 0 ? (
               <div className={styles.welcomeMessage}>
                 <div className={styles.welcomeIcon}><AnimatedBotBall size={64} /></div>
@@ -1206,19 +1206,7 @@ export default function ChatInterface() {
 
           {/* Input-бар */}
           {isMobile && (
-            <div
-              className={styles.mobileActions}
-              style={{
-                background: chatThemeLight ? '#fff7ed' : '#23232a',
-                borderRadius: 12,
-                boxShadow: chatThemeLight
-                  ? '0 2px 8px rgba(245, 158, 66, 0.08)'
-                  : '0 2px 12px rgba(0,0,0,0.10)',
-                margin: '0 0 12px 0',
-                padding: '8px 8px 8px 8px',
-                transition: 'background 0.28s cubic-bezier(0.4,0,0.2,1), box-shadow 0.28s cubic-bezier(0.4,0,0.2,1)',
-              }}
-            >
+            <div className={styles.mobileActions} style={{position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 102, width: '100vw', margin: 0}}>
               {[
                 { key: 'reason', onClick: handleToggleReasoning, icon: <FiZap size={20} />, label: t('deepThink'), active: currentChat?.reasoningEnabled },
                 { key: 'web', onClick: handleToggleWebSearch, icon: <FiSearch size={20} />, label: t('webSearch'), active: currentChat?.webSearchEnabled },
@@ -1265,65 +1253,128 @@ export default function ChatInterface() {
               })}
             </div>
           )}
-          <form onSubmit={handleSubmit} className={styles.chatInputBar}>
-            {/* Файл (чип) */}
-            {uploadedFile && (
-              <span className={styles.fileChipWrapper}>
-                <span className={styles.fileChip}>
-                  <FiUpload className={styles.fileChipIcon} />
-                  <span className={styles.fileName}>{uploadedFile.name}</span>
-                  <button type="button" className={styles.fileChipRemove} onClick={handleRemoveFile} title={t('fileRemove')}>
-                    <FiX />
-                  </button>
+          {isMobile && (
+            <form onSubmit={handleSubmit} className={styles.chatInputBar} style={{position: 'fixed', left: 0, right: 0, bottom: 64, zIndex: 101, width: '100vw', margin: 0}}>
+              {/* Файл (чип) */}
+              {uploadedFile && (
+                <span className={styles.fileChipWrapper}>
+                  <span className={styles.fileChip}>
+                    <FiUpload className={styles.fileChipIcon} />
+                    <span className={styles.fileName}>{uploadedFile.name}</span>
+                    <button type="button" className={styles.fileChipRemove} onClick={handleRemoveFile} title={t('fileRemove')}>
+                      <FiX />
+                    </button>
+                  </span>
                 </span>
-              </span>
-            )}
-            <div className={styles.inputRow}>
-              <textarea
-                className={styles.inputBarInput}
-                value={message}
-                onChange={e => setMessage(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder={uploadedFile ? `Введите вопрос о файле \"${uploadedFile.name}\"...` : (currentChat && models.find(m => m.id === currentChat.modelId)?.name ? `${t('message')} ${models.find(m => m.id === currentChat.modelId)?.name}` : t('messagePlaceholder'))}
-                disabled={isLoading || isThinking || !currentChatId}
-                rows={1}
-                style={{
-                  resize: 'none',
-                  overflow: 'hidden',
-                  minHeight: isMobile ? 40 : 44,
-                  maxHeight: isMobile ? 90 : 120,
-                  fontSize: isMobile ? '1.05rem' : '1.13rem',
-                  padding: isMobile ? '12px 10px' : '18px 28px',
-                  textAlign: 'center'
-                }}
-                onInput={e => {
-                  const target = e.target as HTMLTextAreaElement;
-                  target.style.height = 'auto';
-                  target.style.height = Math.min(target.scrollHeight, isMobile ? 90 : 120) + 'px';
-                }}
-              />
-              {/* Upload внутри input-bar */}
-              <button
-                type="button"
-                className={styles.uploadBtn}
-                onClick={() => { if (!currentChat?.webSearchEnabled) setShowUploadDropdown(true); }}
-                disabled={fileLoading || isLoading || currentChat?.webSearchEnabled}
-                title={currentChat?.webSearchEnabled ? t('uploadDisabled') : t('uploadFile')}
-                style={{marginLeft: 4, marginRight: 4}}
-              >
-                <FiUpload size={20} />
-              </button>
-              {/* Send */}
-              <button
-                type="submit"
-                className={styles.sendBtn}
-                disabled={(!message.trim() && !uploadedFile) || isLoading || isThinking || !currentChatId}
-                title={t('send')}
-              >
-                <FiSend />
-              </button>
-            </div>
-          </form>
+              )}
+              <div className={styles.inputRow}>
+                <textarea
+                  className={styles.inputBarInput}
+                  value={message}
+                  onChange={e => setMessage(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder={uploadedFile ? `Введите вопрос о файле \"${uploadedFile.name}\"...` : (currentChat && models.find(m => m.id === currentChat.modelId)?.name ? `${t('message')} ${models.find(m => m.id === currentChat.modelId)?.name}` : t('messagePlaceholder'))}
+                  disabled={isLoading || isThinking || !currentChatId}
+                  rows={1}
+                  style={{
+                    resize: 'none',
+                    overflow: 'hidden',
+                    minHeight: isMobile ? 40 : 44,
+                    maxHeight: isMobile ? 90 : 120,
+                    fontSize: isMobile ? '1.05rem' : '1.13rem',
+                    padding: isMobile ? '12px 10px' : '18px 28px',
+                    textAlign: 'center'
+                  }}
+                  onInput={e => {
+                    const target = e.target as HTMLTextAreaElement;
+                    target.style.height = 'auto';
+                    target.style.height = Math.min(target.scrollHeight, isMobile ? 90 : 120) + 'px';
+                  }}
+                />
+                {/* Upload внутри input-bar */}
+                <button
+                  type="button"
+                  className={styles.uploadBtn}
+                  onClick={() => { if (!currentChat?.webSearchEnabled) setShowUploadDropdown(true); }}
+                  disabled={fileLoading || isLoading || currentChat?.webSearchEnabled}
+                  title={currentChat?.webSearchEnabled ? t('uploadDisabled') : t('uploadFile')}
+                  style={{marginLeft: 4, marginRight: 4}}
+                >
+                  <FiUpload size={20} />
+                </button>
+                {/* Send */}
+                <button
+                  type="submit"
+                  className={styles.sendBtn}
+                  disabled={(!message.trim() && !uploadedFile) || isLoading || isThinking || !currentChatId}
+                  title={t('send')}
+                >
+                  <FiSend />
+                </button>
+              </div>
+            </form>
+          )}
+          {!isMobile && (
+            <form onSubmit={handleSubmit} className={styles.chatInputBar}>
+              {/* Файл (чип) */}
+              {uploadedFile && (
+                <span className={styles.fileChipWrapper}>
+                  <span className={styles.fileChip}>
+                    <FiUpload className={styles.fileChipIcon} />
+                    <span className={styles.fileName}>{uploadedFile.name}</span>
+                    <button type="button" className={styles.fileChipRemove} onClick={handleRemoveFile} title={t('fileRemove')}>
+                      <FiX />
+                    </button>
+                  </span>
+                </span>
+              )}
+              <div className={styles.inputRow}>
+                <textarea
+                  className={styles.inputBarInput}
+                  value={message}
+                  onChange={e => setMessage(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder={uploadedFile ? `Введите вопрос о файле \"${uploadedFile.name}\"...` : (currentChat && models.find(m => m.id === currentChat.modelId)?.name ? `${t('message')} ${models.find(m => m.id === currentChat.modelId)?.name}` : t('messagePlaceholder'))}
+                  disabled={isLoading || isThinking || !currentChatId}
+                  rows={1}
+                  style={{
+                    resize: 'none',
+                    overflow: 'hidden',
+                    minHeight: isMobile ? 40 : 44,
+                    maxHeight: isMobile ? 90 : 120,
+                    fontSize: isMobile ? '1.05rem' : '1.13rem',
+                    padding: isMobile ? '12px 10px' : '18px 28px',
+                    textAlign: 'center'
+                  }}
+                  onInput={e => {
+                    const target = e.target as HTMLTextAreaElement;
+                    target.style.height = 'auto';
+                    target.style.height = Math.min(target.scrollHeight, isMobile ? 90 : 120) + 'px';
+                  }}
+                />
+                {/* Upload внутри input-bar */}
+                <button
+                  type="button"
+                  className={styles.uploadBtn}
+                  onClick={() => { if (!currentChat?.webSearchEnabled) setShowUploadDropdown(true); }}
+                  disabled={fileLoading || isLoading || currentChat?.webSearchEnabled}
+                  title={currentChat?.webSearchEnabled ? t('uploadDisabled') : t('uploadFile')}
+                  style={{marginLeft: 4, marginRight: 4}}
+                >
+                  <FiUpload size={20} />
+                </button>
+                {/* Send */}
+                <button
+                  type="submit"
+                  className={styles.sendBtn}
+                  disabled={(!message.trim() && !uploadedFile) || isLoading || isThinking || !currentChatId}
+                  title={t('send')}
+                >
+                  <FiSend />
+                </button>
+              </div>
+            </form>
+          )}
 
           {/* Кнопки под input в form */}
           {!isMobile && (
