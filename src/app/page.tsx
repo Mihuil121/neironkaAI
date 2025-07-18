@@ -84,7 +84,7 @@ const LANGS = [
 
 function LanguageSwitcher({ lang, setLang }: { lang: keyof typeof translations, setLang: (l: keyof typeof translations) => void }) {
   return (
-    <div style={{ position: 'absolute', top: 24, right: 32, zIndex: 10, display: 'flex', gap: 12 }}>
+    <div className={styles.languageSwitcher}>
       {LANGS.map(l => (
         <button
           key={l.code}

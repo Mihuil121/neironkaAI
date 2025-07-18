@@ -546,6 +546,78 @@
   box-shadow: 0 2px 12px rgba(249, 115, 22, 0.07);
 }
 
+.languageSwitcher {
+  position: absolute;
+  top: 24px;
+  right: 32px;
+  z-index: 10;
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  left: 0;
+  right: 0;
+}
+
+@media (max-width: 700px) {
+  .languageSwitcher {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: unset;
+    background: rgba(255,255,255,0.95);
+    box-shadow: 0 -2px 12px rgba(40,80,180,0.08);
+    padding: 6px 4px 8px 4px;
+    gap: 8px;
+    justify-content: center;
+    overflow-x: auto;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+    scrollbar-width: thin;
+  }
+  .languageSwitcher button {
+    font-size: 15px !important;
+    padding: 4px 8px !important;
+    border-radius: 10px !important;
+    min-width: 44px;
+    min-height: 36px;
+    flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .languageSwitcher {
+    padding: 4px 2px 6px 2px;
+    gap: 6px;
+    justify-content: center;
+  }
+  .languageSwitcher button {
+    font-size: 13px !important;
+    padding: 2px 6px !important;
+    border-radius: 8px !important;
+    min-width: 36px;
+    min-height: 30px;
+  }
+}
+
+@media (max-width: 340px) {
+  .languageSwitcher {
+    gap: 2px;
+    padding: 2px 0 2px 0;
+    justify-content: center;
+  }
+  .languageSwitcher button {
+    font-size: 0 !important;
+    padding: 2px !important;
+    min-width: 28px;
+    min-height: 28px;
+    border-radius: 50% !important;
+  }
+  .languageSwitcher button span {
+    font-size: 18px !important;
+  }
+}
+
 .sectionsBg {
   min-height: 100vh;
   background: linear-gradient(135deg, #eaf1fb 0%, #f8fafc 100%);
@@ -566,9 +638,9 @@
   background: #fff;
   border-radius: 32px;
   box-shadow: 0 8px 48px rgba(40, 80, 180, 0.10), 0 1.5px 8px rgba(0,0,0,0.04);
-  padding: 36px 32px;
-  gap: 48px;
-  min-height: 320px;
+  padding: 18px 8px;
+  gap: 16px;
+  min-height: unset;
   margin-bottom: 48px;
   background: #fff;
   transition: background 0.4s;
@@ -599,6 +671,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-bottom: 0;
 }
 .sectionImg {
   border-radius: 24px;
@@ -607,6 +680,7 @@
   max-width: 220px;
   width: 100%;
   height: auto;
+  margin-bottom: 8px;
 }
 .sectionTextWrap {
   flex: 2 1 340px;
@@ -615,6 +689,7 @@
   align-items: flex-start;
   justify-content: center;
   min-width: 0;
+  padding: 0 4px;
 }
 .sectionTitle {
   font-size: 2rem;
@@ -623,6 +698,7 @@
   margin-bottom: 12px;
   margin-top: 0;
   line-height: 1.1;
+  margin-bottom: 4px;
 }
 .sectionDesc {
   font-size: 1.15rem;
@@ -630,6 +706,7 @@
   margin-bottom: 18px;
   line-height: 1.5;
   max-width: 480px;
+  margin-bottom: 6px;
 }
 @media (max-width: 900px) {
   .sectionRow, .sectionRowReverse {
@@ -698,91 +775,110 @@
   }
 }
 
-@media (max-width: 480px) {
-  .container {
-    padding: 12px;
+@media (max-width: 700px) {
+  .sectionsBg {
+    padding: 12px 0 32px 0;
+    gap: 18px;
   }
-  
-  .logo {
-    h1 {
-      font-size: 32px;
-    }
-    
-    .foxIcon {
-      font-size: 40px;
-    }
+  .sectionRow, .sectionRowReverse {
+    flex-direction: column !important;
+    gap: 16px;
+    padding: 10px 2px;
+    min-height: unset;
+    box-shadow: 0 2px 8px rgba(40, 80, 180, 0.06);
+    border-radius: 18px;
+    margin-bottom: 10px;
   }
-  
-  .content {
-    h2 {
-      font-size: 24px;
-    }
-    
-    > p {
-      font-size: 16px;
-    }
+  .sectionImgWrap {
+    margin-bottom: 0;
   }
-  
-  .features {
-    gap: 12px;
+  .sectionImg {
+    max-width: 70vw;
+    width: 70vw;
+    min-width: 120px;
+    border-radius: 18px;
+    box-shadow: 0 2px 8px rgba(40, 80, 180, 0.08);
   }
-  
-  .feature {
-    padding: 20px;
-    
-    .featureIcon {
-      font-size: 32px;
-    }
-    
-    h3 {
-      font-size: 18px;
-    }
-    
-    p {
-      font-size: 14px;
-    }
+  .sectionTextWrap {
+    align-items: center;
+    text-align: center;
+    padding: 0 4px;
   }
-  
-  .startButton {
-    padding: 16px 28px;
-    font-size: 16px;
+  .sectionTitle {
+    font-size: 1.35rem;
+    margin-bottom: 2px;
   }
-  
-  .betaNotice {
-    padding: 12px 16px;
-    font-size: 14px;
+  .sectionDesc {
+    font-size: 1.08rem;
+    margin-bottom: 4px;
+    max-width: 98vw;
+  }
+  .ctaButton {
+    font-size: 0.95rem;
+    padding: 10px 18px;
+    border-radius: 18px;
+    margin-top: 8px;
+    margin-bottom: 10px;
+  }
+  .supportBlock {
+    font-size: 0.95rem;
+    padding: 6px 10px;
+    border-radius: 12px;
+    margin-top: 6px;
+    gap: 6px;
   }
 }
 
-@media (max-width: 700px) {
-  .heroNew {
-    padding: 28px 8px 18px 8px;
-  }
-  .companyName {
-    font-size: 2rem;
-  }
-  .featuresGrid {
-    grid-template-columns: 1fr;
-    gap: 14px;
-  }
-  .heroCard {
-    padding: 24px 4px 18px 4px;
-    max-width: 98vw;
-  }
-  .companyName {
-    font-size: 1.3rem;
-  }
-  .featuresRow {
-    flex-direction: column;
+@media (max-width: 480px) {
+  .sectionsBg {
+    padding: 4px 0 16px 0;
     gap: 10px;
   }
-  .featureBox {
-    min-width: 90px;
-    min-height: 80px;
-    font-size: 0.98rem;
+  .sectionRow, .sectionRowReverse {
+    gap: 4px;
+    padding: 4px 0px;
+    border-radius: 10px;
+    margin-bottom: 4px;
+  }
+  .sectionImg {
+    max-width: 80vw;
+    width: 80vw;
+    min-width: 100px;
+    border-radius: 12px;
+  }
+  .sectionTitle {
+    font-size: 1.18rem;
+  }
+  .sectionDesc {
+    font-size: 1.01rem;
+    margin-bottom: 2px;
   }
   .ctaButton {
-    font-size: 1rem;
-    padding: 14px 24px;
+    font-size: 0.85rem;
+    padding: 8px 12px;
+    border-radius: 12px;
+    margin-top: 4px;
+    margin-bottom: 6px;
+  }
+  .supportBlock {
+    font-size: 0.85rem;
+    padding: 4px 6px;
+    border-radius: 8px;
+    margin-top: 4px;
+    gap: 4px;
+  }
+}
+@media (max-width: 340px) {
+  .sectionImg {
+    max-width: 90vw;
+    width: 90vw;
+    min-width: 80px;
+    border-radius: 8px;
+  }
+  .sectionTitle {
+    font-size: 1.05rem;
+  }
+  .sectionDesc {
+    font-size: 0.93rem;
   }
 }
