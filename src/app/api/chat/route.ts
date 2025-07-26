@@ -206,6 +206,16 @@ const ADVANCED_THINKING_PROMPTS = {
       console.log('Ошибка определения языка:', error);
     }
 
+    // --- Автокоррекция для славянских языков ---
+    const cyrillicCount = (message.match(/[а-яё]/gi) || []).length;
+    const totalLetters = (message.match(/[a-zа-яё]/gi) || []).length;
+    const cyrillicRatio = totalLetters > 0 ? cyrillicCount / totalLetters : 0;
+    const slavLangs = ['uk', 'be', 'bg', 'cs', 'pl', 'sk', 'sl', 'hr', 'sr', 'mk'];
+    if (slavLangs.includes(detectedLang) && cyrillicRatio > 0.5) {
+      detectedLang = 'ru';
+      detectedLangName = 'русском';
+    }
+
     // Формируем системный промпт с учетом языка
     let systemPrompt = ADVANCED_THINKING_PROMPTS.baseSystem;
     // Добавляем требование отвечать на языке пользователя, если язык не русский
@@ -222,6 +232,32 @@ const ADVANCED_THINKING_PROMPTS = {
     };
   }
 };
+
+// Расширенный промпт для веб-поиска
+const ADVANCED_WEB_SEARCH_SYSTEM_PROMPT = `Ты - интеллектуальный ИИ-ассистент с функцией веб-поиска. Для каждого запроса пользователя:
+
+ЭТАП 1 - АНАЛИЗ ЗАПРОСА:
+- Определи тип вопроса (фактический, актуальный, аналитический, творческий)
+- Оцени, есть ли у тебя достаточно информации для ответа
+- Реши: нужен поиск или можешь ответить из базы знаний
+
+ЭТАП 2 - СТРАТЕГИЯ ПОИСКА (если нужен):
+- Сформулируй 1-7 поисковых запроса
+- Определи приоритетные источники (новости, википедия, официальные сайты)
+- Укажи временные рамки (если важна актуальность)
+
+ЭТАП 3 - АНАЛИЗ РЕЗУЛЬТАТОВ:
+- Проверь достоверность источников
+- Сопоставь информацию из разных источников
+- Выдели ключевые факты
+
+ЭТАП 4 - ФОРМИРОВАНИЕ ОТВЕТА:
+- Дай прямой ответ на вопрос пользователя
+- Подкрепи фактами из поиска
+- Укажи степень уверенности
+- Предложи дополнительные аспекты темы
+
+Всегда указывай источники и дату последнего обновления информации.`;
 
 // Дополнительные утилиты для улучшения мышления
 const THINKING_ENHANCERS = {
@@ -258,6 +294,208 @@ function isSimpleGreeting(msg: string) {
 function isGreetingWithAction(msg: string) {
   return /\b(привет|здравствуй|добрый день|доброе утро|добрый вечер|hello|hi)\b/i.test(msg) &&
          /как (приготовить|сделать|собрать|написать|решить|получить|выучить|создать|построить|запустить|начать|попасть|достичь|узнать|найти|попробовать|использовать|проверить|поменять|заменить|открыть|закрыть|поменять|обновить|удалить|добавить|сохранить|отправить|загрузить|скачать|установить|подключить|разобрать|собрать|поменять|передать|показать|объяснить|рассказать|описать|помочь|помоги|подскажи)/i.test(msg);
+}
+
+// Функция для создания структурированного плана исследования
+async function createResearchPlan(userQuery: string, modelId: string, systemPrompt: string, apiKey?: string) {
+  const planPrompt = `Создай структурированный план исследования для запроса пользователя. 
+
+План должен содержать 5-7 конкретных исследовательских вопросов, которые помогут полностью раскрыть тему.
+
+Формат ответа:
+(1) [Конкретный вопрос для исследования]
+(2) [Конкретный вопрос для исследования]
+(3) [Конкретный вопрос для исследования]
+...
+
+Пример для запроса "что такое пицца":
+(1) Определить, что такое пицца, и ее основные характеристики.
+(2) Исследовать историю происхождения пиццы, включая ее корни в Неаполе, Италия, и эволюцию до современного вида.
+(3) Выявить ключевые ингредиенты, используемые в приготовлении пиццы, такие как тесто, соус, сыр и типичные начинки.
+(4) Изучить различные виды и региональные стили пиццы по всему миру.
+(5) Описать традиционные методы приготовления пиццы, включая процесс замешивания теста, добавления начинки и выпекания.
+(6) Проанализировать культурное значение пиццы и ее глобальное распространение как популярного блюда.
+(7) Исследовать, как пицца обычно подается и с какими напитками или дополнениями.
+
+Запрос пользователя: ${userQuery}`;
+
+  if (modelId === 'neironka') {
+    const plan = await askLMStudio([
+      { role: 'system', content: ADVANCED_WEB_SEARCH_SYSTEM_PROMPT },
+      { role: 'user', content: planPrompt }
+    ], 0.7, 800);
+    return plan;
+  } else {
+    const openai = getOpenAI(apiKey);
+    const completion = await openai.chat.completions.create({
+      model: MODEL_MAP[modelId] || 'gpt-3.5-turbo',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: planPrompt }
+      ],
+      max_tokens: 800,
+      temperature: 0.7,
+    });
+    return completion.choices[0].message.content || '';
+  }
+}
+
+// Функция для извлечения пунктов плана
+function extractPlanItems(planText: string): string[] {
+  const items = planText.match(/\(\d+\)\s*(.+?)(?=\s*\(\d+\)|$)/g);
+  if (!items) return [];
+  
+  return items.map(item => {
+    const match = item.match(/\(\d+\)\s*(.+)/);
+    return match ? match[1].trim() : item.replace(/^\d+\)\s*/, '').trim();
+  }).filter(item => item.length > 10);
+}
+
+// Функция для выполнения поиска по одному пункту плана
+async function researchPlanItem(item: string, request: NextRequest, modelId: string, systemPrompt: string, apiKey?: string) {
+  console.log(`[AI] Исследуем пункт: ${item}`);
+  
+  // 1. Создаем поисковый запрос для этого пункта
+  let searchQuery = item;
+  if (item.length > 100) {
+    try {
+      const queryPrompt = `Создай короткий поисковый запрос (до 50 символов) для поиска информации по теме: ${item}`;
+      if (modelId === 'neironka') {
+        searchQuery = await askLMStudio([
+          { role: 'system', content: ADVANCED_WEB_SEARCH_SYSTEM_PROMPT },
+          { role: 'user', content: queryPrompt }
+        ], 0.5, 50);
+      } else {
+        const openai = getOpenAI(apiKey);
+        const completion = await openai.chat.completions.create({
+          model: MODEL_MAP[modelId] || 'gpt-3.5-turbo',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: queryPrompt }
+          ],
+          max_tokens: 50,
+          temperature: 0.5,
+        });
+        searchQuery = completion.choices[0].message.content || item;
+      }
+    } catch {
+      searchQuery = item;
+    }
+  }
+
+  // 2. Выполняем поиск
+  const webSearchRes = await fetch(`${request.nextUrl.origin}/api/web-search`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: searchQuery })
+  });
+  
+  if (!webSearchRes.ok) {
+    return { item, summary: 'Не удалось найти информацию по этому пункту.' };
+  }
+
+  const webSearchData = await webSearchRes.json();
+  if (!webSearchData.results || !Array.isArray(webSearchData.results) || webSearchData.results.length === 0) {
+    return { item, summary: 'Не найдено релевантной информации.' };
+  }
+
+  // 3. Извлекаем и анализируем информацию с 2 лучших сайтов
+  const links = webSearchData.results.slice(0, 2);
+  const summaries: string[] = [];
+  
+  for (const link of links) {
+    try {
+      // Извлекаем текст
+      const extractRes = await fetch(`${request.nextUrl.origin}/api/url-extract`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: link.url })
+      });
+      
+      if (!extractRes.ok) continue;
+      
+      const extractData = await extractRes.json();
+      if (!extractData.text || extractData.text.length < 200) continue;
+
+      // Анализируем текст относительно пункта плана
+      const analysisPrompt = `Проанализируй следующий текст и создай краткое резюме (до 200 символов) по теме: "${item}"
+
+Текст: ${extractData.text.slice(0, 2000)}
+
+Резюме должно содержать только самую важную информацию по данному пункту плана.`;
+
+      let summary = '';
+      if (modelId === 'neironka') {
+        summary = await askLMStudio([
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: analysisPrompt }
+        ], 0.5, 200);
+      } else {
+        const openai = getOpenAI(apiKey);
+        const completion = await openai.chat.completions.create({
+          model: MODEL_MAP[modelId] || 'gpt-3.5-turbo',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: analysisPrompt }
+          ],
+          max_tokens: 200,
+          temperature: 0.5,
+        });
+        summary = completion.choices[0].message.content || '';
+      }
+
+      if (summary && summary.length > 20) {
+        summaries.push(summary);
+      }
+    } catch (error) {
+      console.error(`[AI] Ошибка при анализе сайта ${link.url}:`, error);
+    }
+  }
+
+  return {
+    item,
+    summary: summaries.length > 0 ? summaries.join(' ') : 'Информация не найдена.'
+  };
+}
+
+// Функция для создания финального отчета
+async function createFinalReport(userQuery: string, researchResults: any[], modelId: string, systemPrompt: string, detectedLangName: string, apiKey?: string) {
+  const reportPrompt = `Создай подробный и структурированный отчет на основе проведенного исследования.
+
+ВНИМАНИЕ: Всегда формируй итоговый отчёт только на ${detectedLangName} языке, даже если часть информации была найдена на других языках. Переводи все цитаты и выдержки на ${detectedLangName} язык.
+
+Исходный запрос пользователя: ${userQuery}
+
+Результаты исследования:
+${researchResults.map((result, index) => `${index + 1}. ${result.item}\n   Результат: ${result.summary}`).join('\n\n')}
+
+Создай подробный отчет, который:
+1. Полностью отвечает на запрос пользователя
+2. Структурирован и легко читается
+3. Содержит всю найденную информацию
+4. Написан естественным языком
+5. Не содержит технических деталей процесса исследования
+
+Отчет должен быть информативным и полезным для пользователя.`;
+
+  if (modelId === 'neironka') {
+    return await askLMStudio([
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: reportPrompt }
+    ], 0.7, 1500);
+  } else {
+    const openai = getOpenAI(apiKey);
+    const completion = await openai.chat.completions.create({
+      model: MODEL_MAP[modelId] || 'gpt-3.5-turbo',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: reportPrompt }
+      ],
+      max_tokens: 1500,
+      temperature: 0.7,
+    });
+    return completion.choices[0].message.content || '';
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -319,193 +557,95 @@ export async function POST(request: NextRequest) {
 
     const selectedModel = MODEL_MAP[modelId] || 'local-model';
 
-    // --- Новый алгоритм: webSearchEnabled ---
-    let searchMessage = message;
-    if (webSearchEnabled && message.length > 100) {
-      // 1. Сформулировать поисковый запрос через LLM
-      try {
-        const searchQuery = await askLMStudio([
-            { role: 'system', content: 'Ты помощник, который умеет формулировать поисковые запросы для поиска в интернете. Сформулируй короткий и максимально релевантный поисковый запрос по теме, не повторяй исходный текст полностью.' },
-            { role: 'user', content: `Преобразуй следующий текст в короткий поисковый запрос для поиска в интернете:\n\n${message}` }
-          ], 0.5, 50);
-        if (searchQuery && typeof searchQuery === 'string' && searchQuery.length > 3 && searchQuery.length < 100) {
-          searchMessage = searchQuery.trim();
-        }
-      } catch {
-        // fallback к исходному message
-        searchMessage = message;
-      }
-    }
-
+    // --- Новый структурированный алгоритм веб-поиска ---
     if (webSearchEnabled) {
-      // 1. Получаем только 2 лучших сайта через /api/web-search
-      const webSearchRes = await fetch(`${request.nextUrl.origin}/api/web-search`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: searchMessage })
-      });
-      const webSearchData = await webSearchRes.json();
-      if (!webSearchRes.ok || !webSearchData.results || !Array.isArray(webSearchData.results) || webSearchData.results.length === 0) {
-        return NextResponse.json({ error: 'Не удалось найти сайты для поиска' }, { status: 500 });
-      }
+      console.log('[AI] Запускаем структурированный веб-поиск для:', message);
       
-      // Берём до 4 сайтов
-      const links = webSearchData.results.slice(0, 4);
-      // 2. Для каждого сайта — извлекаем текст и сжимаем через /api/compress
-      const summaries: { url: string, title: string, summary: string }[] = [];
-      for (const link of links) {
-        // 2.1. Извлекаем текст
-        let text = '';
-        try {
-          const extractRes = await fetch(`${request.nextUrl.origin}/api/url-extract`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: link.url })
-          });
-          const extractData = await extractRes.json();
-          if (extractRes.ok && extractData.text && extractData.text.length > 500) {
-            text = extractData.text;
-          } else {
-            continue; // если не удалось извлечь текст — пробуем следующий сайт
-          }
-        } catch {
-          continue;
+      try {
+        // 1. Создаем план исследования
+        console.log('[AI] Создаем план исследования...');
+        const researchPlan = await createResearchPlan(message, modelId, systemPrompt, apiKey);
+        if (!researchPlan || researchPlan.includes('__LMSTUDIO_CONNECTION_ERROR__')) {
+          return NextResponse.json({ error: 'Не удалось создать план исследования. Попробуйте позже.' }, { status: 503 });
         }
         
-        // 2.2. Сжимаем текст до 250 символов через /api/compress
-        let summary = '';
-        try {
-          const compressRes = await fetch(`${request.nextUrl.origin}/api/compress`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text, language, modelId })
-          });
-          const compressData = await compressRes.json();
-          if (compressRes.ok && compressData.result && compressData.result.length > 0) {
-            summary = compressData.result.slice(0, 250);
-          } else {
-            summary = text.slice(0, 250);
-          }
-        } catch {
-          summary = text.slice(0, 250);
+        // 2. Извлекаем пункты плана
+        const planItems = extractPlanItems(researchPlan);
+        if (planItems.length === 0) {
+          return NextResponse.json({ error: 'Не удалось создать план исследования.' }, { status: 500 });
         }
-        summaries.push({ url: link.url, title: link.title, summary });
-      }
-      
-      // 3. Формируем финальный промпт только из summary
-      let finalPrompt = `Пользователь хочет: ${message}\n\nВот что удалось узнать из сайтов:\n${summaries.map((a, i) => `[${i+1}] ${a.title} (${a.url})\n${a.summary}`).join('\n\n')}\n\nСформулируй итоговый ответ для пользователя, строго опираясь только на эти выводы.`;
-      
-      // Логируем длину промпта и количество сайтов
-      console.log(`[AI] Отправляем в LM Studio summary-промпт длиной ${finalPrompt.length} символов, сайтов: ${summaries.length}`);
-      if (finalPrompt.length > 4000) {
-        console.log(`[AI] Summary-промпт слишком длинный (${finalPrompt.length}), отправляем на сжатие...`);
-        try {
-          const compressRes = await fetch(`${request.nextUrl.origin}/api/compress`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: finalPrompt, language, modelId })
-          });
-          const compressData = await compressRes.json();
-          if (compressRes.ok && compressData.result && compressData.result.length > 0) {
-            finalPrompt = compressData.result;
-            console.log(`[AI] Сжатый summary-промпт: ${finalPrompt.length} символов`);
-          } else {
-            console.log('[AI] Не удалось сжать summary-промпт, используем оригинал');
+        
+        console.log(`[AI] Создан план из ${planItems.length} пунктов:`, planItems);
+        
+        // 3. Исследуем каждый пункт плана
+        const researchResults = [];
+        for (let i = 0; i < planItems.length; i++) {
+          console.log(`[AI] Исследуем пункт ${i + 1}/${planItems.length}`);
+          const result = await researchPlanItem(planItems[i], request, modelId, systemPrompt, apiKey);
+          researchResults.push(result);
+          
+          // Небольшая пауза между запросами
+          if (i < planItems.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
           }
-        } catch (err) {
-          console.log('[AI] Ошибка при сжатии summary-промпта:', err);
         }
-      }
-      
-      const t0 = Date.now();
-      let answer = '';
-      let reasoning = null;
-      
-      if (webSearchEnabled && reasoningEnabled) {
-        // reasoning-логика с веб-поиском
-        // Сначала получаем финальный ответ по сайтам
-        let sitesAnswer = '';
-        if (modelId === 'neironka') {
-          sitesAnswer = await askLMStudio([
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: finalPrompt }
-          ], 0.7, 1000);
-          if (sitesAnswer === '__LMSTUDIO_CONNECTION_ERROR__') {
-            return NextResponse.json({ error: 'У вас нестабильное соединение с моделью. Попробуйте позже.' }, { status: 503 });
-          }
-        } else {
-          const openai = getOpenAI(apiKey);
-          const completion = await openai.chat.completions.create({
-            model: selectedModel,
-            messages: [
+        
+        // 4. Создаем финальный отчет
+        console.log('[AI] Создаем финальный отчет...');
+        const finalReport = await createFinalReport(message, researchResults, modelId, systemPrompt, detectedLangName, apiKey);
+        
+        if (!finalReport || finalReport.includes('__LMSTUDIO_CONNECTION_ERROR__')) {
+          return NextResponse.json({ error: 'Не удалось создать финальный отчет. Попробуйте позже.' }, { status: 503 });
+        }
+        
+        // 5. Если включен reasoning, создаем reasoning на основе отчета
+        let reasoning = null;
+        if (reasoningEnabled) {
+          console.log('[AI] Создаем reasoning на основе отчета...');
+          const reasoningPrompt = `${languageData.deepReasoning}\n\nВот подробный отчет по вашему запросу:\n${finalReport}\n\nПроанализируй этот отчет, объясни логику исследования, сделай пошаговый разбор и дай финальный вывод.`;
+          
+          if (modelId === 'neironka') {
+            reasoning = await askLMStudio([
               { role: 'system', content: systemPrompt },
-              { role: 'user', content: finalPrompt }
-            ],
-            max_tokens: 1000,
-            temperature: 0.7,
-          });
-          sitesAnswer = completion.choices[0].message.content || '';
-        }
-        
-        // Теперь reasoning-промпт по этому ответу
-        const reasoningPrompt = `${languageData.deepReasoning}\n\nВот информация, которую удалось собрать по вашему запросу из сайтов:\n${sitesAnswer}\n\nПроанализируй эти данные, объясни логику, сделай пошаговый разбор и только потом дай финальный вывод.`;
-        if (modelId === 'neironka') {
-          reasoning = await askLMStudio([
-            { role: 'system', content: systemPrompt + (reasoningPrompt ? '\n' + reasoningPrompt : '') },
-            ...conversationHistory,
-            { role: 'user', content: reasoningPrompt }
-          ], 0.7, 800);
-          if (reasoning === '__LMSTUDIO_CONNECTION_ERROR__') {
-            return NextResponse.json({ error: 'У вас нестабильное соединение с моделью. Попробуйте позже.' }, { status: 503 });
-          }
-        } else {
-          const openai = getOpenAI(apiKey);
-          const completion = await openai.chat.completions.create({
-            model: selectedModel,
-            messages: [
-              { role: 'system', content: systemPrompt + (reasoningPrompt ? '\n' + reasoningPrompt : '') },
               ...conversationHistory,
               { role: 'user', content: reasoningPrompt }
-            ],
-            max_tokens: 800,
-            temperature: 0.7,
-          });
-          reasoning = completion.choices[0].message.content || '';
-        }
-        answer = sitesAnswer;
-      } else {
-        // Обычный финальный ответ (поиск без reasoning)
-        if (modelId === 'neironka') {
-          answer = await askLMStudio([
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: finalPrompt }
-          ], 0.7, 1000);
-          if (answer === '__LMSTUDIO_CONNECTION_ERROR__') {
-            return NextResponse.json({ error: 'У вас нестабильное соединение с моделью. Попробуйте позже.' }, { status: 503 });
+            ], 0.7, 800);
+            if (reasoning === '__LMSTUDIO_CONNECTION_ERROR__') {
+              return NextResponse.json({ error: 'У вас нестабильное соединение с моделью. Попробуйте позже.' }, { status: 503 });
+            }
+          } else {
+            const openai = getOpenAI(apiKey);
+            const completion = await openai.chat.completions.create({
+              model: selectedModel,
+              messages: [
+                { role: 'system', content: systemPrompt },
+                ...conversationHistory,
+                { role: 'user', content: reasoningPrompt }
+              ],
+              max_tokens: 800,
+              temperature: 0.7,
+            });
+            reasoning = completion.choices[0].message.content || '';
           }
-        } else {
-          const openai = getOpenAI(apiKey);
-          const completion = await openai.chat.completions.create({
-            model: selectedModel,
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: finalPrompt }
-            ],
-            max_tokens: 1000,
-            temperature: 0.7,
-          });
-          answer = completion.choices[0].message.content || '';
         }
+        
+        console.log('[AI] Структурированный веб-поиск завершен успешно');
+        return NextResponse.json({
+          reasoning,
+          answer: finalReport,
+          role: 'assistant',
+          searchSources: researchResults.map(result => ({ 
+            title: result.item, 
+            url: 'research-item' 
+          }))
+        });
+        
+      } catch (error) {
+        console.error('[AI] Ошибка в структурированном веб-поиске:', error);
+        return NextResponse.json({ 
+          error: 'Ошибка при выполнении веб-поиска: ' + (error instanceof Error ? error.message : String(error)) 
+        }, { status: 500 });
       }
-      
-      const t1 = Date.now();
-      console.log(`[AI] Время поиска и генерации ответа LM Studio: ${t1 - t0} мс`);
-      return NextResponse.json({
-        reasoning,
-        answer,
-        role: 'assistant',
-        searchSources: summaries.map(a => ({ title: a.title, url: a.url }))
-      });
     }
 
     // --- Формируем промпт для LLM с учётом файла ---

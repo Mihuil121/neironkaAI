@@ -68,19 +68,46 @@ function ProgressStage({ isThinking, chunkProgress, isLoading, reasoningEnabled,
   const { t } = useTranslation();
   if (!isThinking && !isLoading) return null;
   let stageText = t('status_idle');
+  
   if (chunkProgress) {
-    if (/ищем|search/i.test(chunkProgress.stage)) stageText = t('status_searching');
-    else if (/анализ|reason/i.test(chunkProgress.stage)) stageText = t('status_reasoning');
-    else if (/ответ|answer/i.test(chunkProgress.stage)) stageText = t('status_answering');
-    else if (/ссылка|link/i.test(chunkProgress.stage)) stageText = t('status_extracting_links');
-    else if (/источник|source/i.test(chunkProgress.stage)) stageText = t('status_studying_sources');
-    else stageText = chunkProgress.stage;
-    stageText += ` (${chunkProgress.current} из ${chunkProgress.total})`;
+    // Обработка структурированного веб-поиска
+    if (chunkProgress.stage === 'Создаем план исследования') {
+      stageText = '🔍 Создаем план исследования...';
+    } else if (chunkProgress.stage === 'Исследуем пункт') {
+      stageText = `🔍 Исследуем пункт ${chunkProgress.current} из ${chunkProgress.total}`;
+    } else if (chunkProgress.stage === 'Создаем финальный отчет') {
+      stageText = '📝 Создаем финальный отчет...';
+    } else if (chunkProgress.stage === 'Создаем reasoning') {
+      stageText = '🧠 Анализируем результаты...';
+    } else if (/ищем|search/i.test(chunkProgress.stage)) {
+      stageText = t('status_searching');
+    } else if (/анализ|reason/i.test(chunkProgress.stage)) {
+      stageText = t('status_reasoning');
+    } else if (/ответ|answer/i.test(chunkProgress.stage)) {
+      stageText = t('status_answering');
+    } else if (/ссылка|link/i.test(chunkProgress.stage)) {
+      stageText = t('status_extracting_links');
+    } else if (/источник|source/i.test(chunkProgress.stage)) {
+      stageText = t('status_studying_sources');
+    } else {
+      stageText = chunkProgress.stage;
+    }
+    
+    if (chunkProgress.current && chunkProgress.total) {
+      stageText += ` (${chunkProgress.current} из ${chunkProgress.total})`;
+    }
   } else if (isLoading) {
-    if (reasoningEnabled) stageText = t('status_reasoning');
-    else if (webSearchEnabled) stageText = t('status_searching');
-    else stageText = t('status_idle');
+    if (reasoningEnabled && webSearchEnabled) {
+      stageText = '🔍 Исследуем в интернете...';
+    } else if (reasoningEnabled) {
+      stageText = t('status_reasoning');
+    } else if (webSearchEnabled) {
+      stageText = t('status_searching');
+    } else {
+      stageText = t('status_idle');
+    }
   }
+  
   return (
     <div className={styles.progressStage}>
       <FiZap className={styles.thinkingIcon} />
