@@ -94,6 +94,20 @@ export const translations = {
     status_extracting_links: 'Ищутся ссылки...',
     status_studying_sources: 'Изучаются источники...',
     status_idle: 'Ожидание запроса...',
+    translateBook: 'Перевести книгу',
+    translateBookDesc: 'Загрузите TXT или PDF для перевода',
+    selectLanguage: 'Выберите язык',
+    customLanguage: 'Другой язык',
+    enterLanguage: 'Введите язык',
+    translate: 'Перевести',
+    download: 'Скачать',
+    onlineRead: 'Онлайн прочитать',
+    translatedFileNote: 'Вот файл с переведённой книгой.',
+    onlineBookTitle: 'Онлайн книга',
+    onlineBookPrev: 'Назад',
+    onlineBookNext: 'Вперёд',
+    onlineBookPage: 'Страница',
+    onlineBookOf: 'из',
   },
 
   en: {
@@ -191,6 +205,20 @@ export const translations = {
     status_extracting_links: 'Extracting links...',
     status_studying_sources: 'Studying sources...',
     status_idle: 'Waiting for input...',
+    translateBook: 'Translate book',
+    translateBookDesc: 'Upload TXT or PDF for translation',
+    selectLanguage: 'Select language',
+    customLanguage: 'Custom language',
+    enterLanguage: 'Enter language',
+    translate: 'Translate',
+    download: 'Download',
+    onlineRead: 'Read Online',
+    translatedFileNote: 'Here is the file with the translated book.',
+    onlineBookTitle: 'Online Book',
+    onlineBookPrev: 'Previous',
+    onlineBookNext: 'Next',
+    onlineBookPage: 'Page',
+    onlineBookOf: 'of',
   },
   zhHans: {
     welcome: '欢迎来到 Neironka Ai!',
@@ -270,6 +298,20 @@ export const translations = {
     status_studying_sources: '正在研究来源...',
     status_idle: '等待输入...',
     chatHistory: '聊天历史',
+    translateBook: '翻译书籍',
+    translateBookDesc: '上传 TXT 或 PDF 进行翻译',
+    selectLanguage: '选择语言',
+    customLanguage: '其他语言',
+    enterLanguage: '输入语言',
+    translate: '翻译',
+    download: '下载',
+    onlineRead: '在线阅读',
+    translatedFileNote: '这是翻译后的书籍文件。',
+    onlineBookTitle: '在线书籍',
+    onlineBookPrev: '上一页',
+    onlineBookNext: '下一页',
+    onlineBookPage: '第',
+    onlineBookOf: '共',
   },
   tl: {
     welcome: 'Maligayang pagdating sa Neironka Ai!',
@@ -349,6 +391,20 @@ export const translations = {
     status_studying_sources: 'Pinag-aaralan ang mga source...',
     status_idle: 'Naghihintay ng input...',
     chatHistory: 'Kasaysayan ng Chat',
+    translateBook: 'I-translate ang aklat',
+    translateBookDesc: 'I-upload ang TXT o PDF para sa pag-translate',
+    selectLanguage: 'Pumili ng wika',
+    customLanguage: 'Iba pang wika',
+    enterLanguage: 'Ilagay ang wika',
+    translate: 'I-translate',
+    download: 'I-download',
+    onlineRead: 'Basahin Online',
+    translatedFileNote: 'Narito ang file ng isinaling aklat.',
+    onlineBookTitle: 'Online na Libro',
+    onlineBookPrev: 'Nakaraan',
+    onlineBookNext: 'Susunod',
+    onlineBookPage: 'Pahina',
+    onlineBookOf: 'ng',
   },
 };
 
@@ -431,7 +487,21 @@ export type TranslationKeys =
   | 'status_idle'
   | 'webSearch'
   | 'webSearchTooltip'
-  | 'chatHistory';
+  | 'chatHistory'
+  | 'translateBook'
+  | 'translateBookDesc'
+  | 'selectLanguage'
+  | 'customLanguage'
+  | 'enterLanguage'
+  | 'translate'
+  | 'download'
+  | 'onlineRead'
+  | 'translatedFileNote'
+  | 'onlineBookTitle'
+  | 'onlineBookPrev'
+  | 'onlineBookNext'
+  | 'onlineBookPage'
+  | 'onlineBookOf';
 
 export const useTranslation = () => {
   const { language } = useAuthStore();

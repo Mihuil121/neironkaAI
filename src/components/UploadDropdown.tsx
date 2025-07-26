@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { FiUpload, FiImage, FiFile, FiYoutube, FiX } from 'react-icons/fi';
+import { FiUpload, FiImage, FiFile, FiYoutube, FiX, FiPaperclip } from 'react-icons/fi';
 import styles from './UploadDropdown.module.scss';
 import { useTranslation } from '@/lib/translations';
 import { useChatStore } from '@/store/useChatStore';
@@ -13,6 +13,7 @@ interface UploadDropdownProps {
   onYouTubeUpload: (url: string) => void;
   onImageUpload: (file: File) => void;
   onUrlExtract: (url: string) => void;
+  onTranslateBook: (file: File, language: string) => void;
 }
 
 export default function UploadDropdown({
@@ -21,7 +22,8 @@ export default function UploadDropdown({
   onFileUpload,
   onYouTubeUpload,
   onImageUpload,
-  onUrlExtract
+  onUrlExtract,
+  onTranslateBook
 }: UploadDropdownProps) {
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [showYouTubeInput, setShowYouTubeInput] = useState(false);
@@ -32,6 +34,11 @@ export default function UploadDropdown({
   const [siteUrl, setSiteUrl] = useState('');
   const { t } = useTranslation();
   const { chatThemeLight } = useChatStore();
+  const [showTranslateBookInput, setShowTranslateBookInput] = useState(false);
+  const [translateBookFile, setTranslateBookFile] = useState<File | null>(null);
+  const translateBookFileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedLanguage, setSelectedLanguage] = useState('');
+  const [customLanguage, setCustomLanguage] = useState('');
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -83,6 +90,36 @@ export default function UploadDropdown({
     }
   };
 
+  const handleTranslateBookFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setTranslateBookFile(file);
+    }
+  };
+
+  const handleTranslateBook = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!translateBookFile) return;
+    let lang = selectedLanguage === 'custom' ? customLanguage : selectedLanguage;
+    if (!lang) {
+      alert('Пожалуйста, выберите язык перевода');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      await onTranslateBook(translateBookFile, lang);
+      setShowTranslateBookInput(false);
+      setTranslateBookFile(null);
+      setSelectedLanguage('');
+      setCustomLanguage('');
+      onClose();
+    } catch (error) {
+      // Ошибка уже обработана в ChatInterface
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const extractVideoId = (url: string): string | null => {
     const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
     const match = url.match(regex);
@@ -125,6 +162,26 @@ export default function UploadDropdown({
   });
   // Функция для цвета иконки
   const getIconColor = (disabled = false) => (disabled ? '#bbb' : '#f59e42');
+
+  // Функция для обрезки длинных имен файлов
+  const truncateFileName = (fileName: string, maxLength: number = 20) => {
+    if (fileName.length <= maxLength) return fileName;
+    
+    const lastDotIndex = fileName.lastIndexOf('.');
+    if (lastDotIndex === -1) {
+      // Если нет расширения, просто обрезаем
+      return fileName.substring(0, 3) + '...';
+    }
+    
+    const name = fileName.substring(0, lastDotIndex);
+    const extension = fileName.substring(lastDotIndex);
+    
+    if (name.length <= 3) {
+      return name + extension;
+    }
+    
+    return name.substring(0, 3) + '...' + extension;
+  };
 
   return (
     <div className={styles.overlay} style={overlayStyle} onClick={onClose}>
@@ -182,49 +239,6 @@ export default function UploadDropdown({
             />
           </div>
 
-          {/* YouTube видео */}
-          <div className={styles.option}>
-            {!showYouTubeInput ? (
-              <button
-                className={styles.optionBtn}
-                style={optionBtnStyle}
-                onClick={() => setShowYouTubeInput(true)}
-              >
-                <FiYoutube className={styles.optionIcon} />
-                <div className={styles.optionText}>
-                  <span className={styles.optionTitle} style={{ color: chatThemeLight ? '#23232a' : '#fff' }}>{t('youtubeVideo')}</span>
-                  <span className={styles.optionDesc}>{t('youtubeDesc')}</span>
-                </div>
-              </button>
-            ) : (
-              <form onSubmit={handleYouTubeSubmit} className={styles.youtubeForm}>
-                <div className={styles.youtubeInput}>
-                  <input
-                    type="url"
-                    placeholder={t('youtubePlaceholder')}
-                    value={youtubeUrl}
-                    onChange={(e) => setYoutubeUrl(e.target.value)}
-                    className={styles.urlInput}
-                    autoFocus
-                  />
-                  <button type="submit" className={styles.submitBtn} disabled={isLoading}
-                    style={submitBtnStyle}
-                  >
-                    {isLoading ? t('loading') : t('upload')}
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowYouTubeInput(false)}
-                  className={styles.cancelBtn}
-                  style={cancelBtnStyle}
-                >
-                  {t('cancel')}
-                </button>
-              </form>
-            )}
-          </div>
-
           {/* Вставка ссылки на сайт */}
           <div className={styles.option}>
             {!showUrlInput ? (
@@ -265,6 +279,81 @@ export default function UploadDropdown({
                   {t('cancel')}
                 </button>
               </form>
+            )}
+          </div>
+
+          {/* Кнопка Перевести книгу */}
+          <div className={styles.option}>
+            {!showTranslateBookInput ? (
+              <button
+                className={styles.optionBtn}
+                style={getOptionBtnStyle(false)}
+                onClick={() => setShowTranslateBookInput(true)}
+              >
+                <FiPaperclip className={styles.optionIcon} style={{ color: getIconColor(false) }} />
+                <div className={styles.optionText}>
+                  <span className={styles.optionTitle} style={{ color: chatThemeLight ? '#23232a' : '#fff' }}>{t('translateBook')}</span>
+                  <span className={styles.optionDesc}>{t('translateBookDesc')}</span>
+                </div>
+              </button>
+            ) : (
+              <div className={styles.optionBtn} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8, background: chatThemeLight ? '#f7f7fa' : '#23232a' }}>
+                {/* Кастомная кнопка выбора файла */}
+                <label className={styles.translateBookFileLabel} style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                  <FiPaperclip size={18} style={{ color: chatThemeLight ? '#f59e42' : '#ff9800' }} />
+                  {translateBookFile ? t('file') + ': ' + truncateFileName(translateBookFile.name) : t('file')}
+                  <input
+                    ref={translateBookFileInputRef}
+                    type="file"
+                    accept=".txt,.docx,.doc,.epub,.fb2"
+                    onChange={handleTranslateBookFileSelect}
+                    className={styles.translateBookFileInput}
+                    style={{ display: 'none' }}
+                  />
+                </label>
+                {translateBookFile && (
+                  <div className={styles.translateBookFileName}>{truncateFileName(translateBookFile.name)}</div>
+                )}
+                {/* Выбор языка */}
+                <select
+                  value={selectedLanguage}
+                  onChange={e => setSelectedLanguage(e.target.value)}
+                  className={styles.translateBookSelect}
+                  style={{ marginBottom: 6 }}
+                >
+                  <option value="">{t('selectLanguage')}</option>
+                  <option value="en">English</option>
+                  <option value="ru">Русский</option>
+                  <option value="de">Deutsch</option>
+                  <option value="fr">Français</option>
+                  <option value="es">Español</option>
+                  <option value="zh">中文</option>
+                  <option value="custom">{t('customLanguage')}</option>
+                </select>
+                {selectedLanguage === 'custom' && (
+                  <input
+                    type="text"
+                    placeholder={t('enterLanguage')}
+                    value={customLanguage}
+                    onChange={e => setCustomLanguage(e.target.value)}
+                    className={styles.translateBookCustomInput}
+                    style={{ marginBottom: 6 }}
+                  />
+                )}
+                {/* Кнопка Перевести */}
+                <button type="button" className={styles.translateBookSubmitBtn} disabled={isLoading || !translateBookFile || !(selectedLanguage || customLanguage)}
+                  onClick={e => { e.preventDefault(); handleTranslateBook(e as any); }}
+                >
+                  {isLoading ? t('loading') : t('translate')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowTranslateBookInput(false)}
+                  className={styles.translateBookCancelBtn}
+                >
+                  {t('cancel')}
+                </button>
+              </div>
             )}
           </div>
         </div>

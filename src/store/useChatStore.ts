@@ -17,6 +17,7 @@ export interface Message {
   fileType?: string;
   fileSize?: number;
   fileContent?: string;
+  downloadUrl?: string;
 }
 
 export interface Chat {

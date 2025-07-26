@@ -3,8 +3,6 @@ import OpenAI from 'openai';
 import { franc } from 'franc';
 // @ts-ignore
 import langs from 'langs';
-// Удалил импорт askLMStudioWithQueue
-// import { askLMStudioWithQueue } from '@/lib/lmstudioQueue';
 
 // Используем API ключ из запроса или дефолтный
 const getOpenAI = (apiKey?: string) => new OpenAI({
@@ -45,6 +43,7 @@ function checkUserLimit(userId: string): boolean {
 }
 
 const LMSTUDIO_API_URL = 'https://myai-api.loca.lt/v1/chat/completions';
+
 // Функция для работы с LM Studio API
 async function askLMStudio(messages: any[], temperature: number = 0.7, maxTokens: number = 1000) {
   try {
@@ -82,10 +81,8 @@ async function askLMStudio(messages: any[], temperature: number = 0.7, maxTokens
   } catch (error: any) {
     console.error('Ошибка LM Studio API:', error);
     if (error.name === 'AbortError') {
-      // Возвращаем специальный маркер ошибки для дальнейшей обработки
       return '__LMSTUDIO_CONNECTION_ERROR__';
     }
-    // Возвращаем специальный маркер ошибки для дальнейшей обработки
     return '__LMSTUDIO_CONNECTION_ERROR__';
   }
 }
@@ -98,39 +95,158 @@ const MODEL_MAP: { [key: string]: string } = {
   'qwen3': 'qwen/qwen3-30b-a3b:free',
 };
 
-// Промпты на разных языках
-const PROMPTS = {
-  ru: {
-    system: `Ты дружелюбный и полезный AI помощник. Отвечай на русском языке, будь вежливым и старайся давать полезные ответы. Если в ответе есть код, обязательно используй Markdown форматирование с указанием языка программирования. Например: \`\`\`javascript для JavaScript, \`\`\`python для Python, \`\`\`html для HTML и т.д. Всегда форматируй заголовки с помощью #, жирный текст с **, курсив с *, списки с - или 1., и код с \` для встроенного кода.\n\nЕсли в ответе есть математические формулы, обязательно оформляй их в формате LaTeX: для встроенных формул используй $...$, для блоковых формул используй $$...$$. Не используй другие способы оформления формул.`,
-    reasoning: `Ты — эксперт-аналитик. Проведи внутренний анализ запроса пользователя. Этот анализ НЕ будет показан пользователю — он используется только для формирования финального ответа. Анализ должен включать:
-1. **Глубокое понимание задачи:** Сформулируй суть запроса своими словами
-2. **Логические рассуждения:** Разбей проблему на шаги, объясни свою логику
-3. **Расчеты (если применимо):** Проведи необходимые математические вычисления
-4. **Критическая оценка:** Выяви ограничения, этические дилеммы, потенциальные ошибки
-5. **Внутренние оговорки:** Укажи допущения и неочевидные нюансы
-6. **Подготовка вывода:** Сформулируй ключевые тезисы для финального ответа
+// Продвинутые промпты для искусственного мышления
+const ADVANCED_THINKING_PROMPTS = {
+  // Базовый системный промпт
+  baseSystem: `Ты продвинутый ИИ-ассистент с возможностями глубокого анализа. Если в ответе есть код, обязательно используй Markdown форматирование с указанием языка программирования. Например: \`\`\`javascript для JavaScript, \`\`\`python для Python, \`\`\`html для HTML и т.д. Всегда форматируй заголовки с помощью #, жирный текст с **, курсив с *, списки с - или 1., и код с \` для встроенного кода.
 
-Будь максимально подробным в анализе, но сохраняй естественный поток мыслей. Не пытайся давать готовый ответ пользователю в этом разделе!`,
-    reasoningWithAnalysis: "Ты дружелюбный и полезный AI помощник. Отвечай на русском языке, используя только выводы из внутреннего анализа. Будь вежливым и давай полезные ответы.",
-    analyzeTask: "Проведи внутренний анализ этой задачи:",
-    finalAnswer: `Сформируй финальный ответ пользователю, используя ТОЛЬКО выводы из внутреннего анализа (reasoning):
+Если в ответе есть математические формулы, обязательно оформляй их в формате LaTeX: для встроенных формул используй $...$, для блоковых формул используй $$...$$. Не используй другие способы оформления формул.`,
 
-1. Строго следуй структуре:
-   - Повтори вопрос (если это важно для понимания)
-   - Основной вывод
-   - Краткое обоснование
-   - Расчёты (если есть)
-   - Оговорки/этические аспекты (если есть)
+  // Промпт для глубокого анализа (reasoning)
+  deepReasoning: `Ты — эксперт-аналитик. Проведи внутренний анализ запроса пользователя. Этот анализ НЕ будет показан пользователю — он используется только для формирования финального ответа.
 
-2. Не выводи пустые секции и не пиши, что их нет. Если для какого-то пункта нет информации — просто пропусти этот пункт. Не используй фразы типа 'нет оговорок', 'нет расчетов', 'не требуется' и не выводи заголовок без содержимого.
+🧠 **ГЛУБОКОЕ ПОНИМАНИЕ ЗАДАЧИ:**
+- Переформулируй суть запроса своими словами
+- Выдели ключевые элементы и скрытые подзадачи
+- Определи тип запроса (информационный, аналитический, творческий, практический)
 
-3. Не выводи сами заголовки этапов (например, "[Основной вывод]", "[Обоснование]", "[Расчёты]", "[Оговорки]") и не упоминай их явно в ответе. Просто соблюдай структуру, но не обозначай её в тексте.
+🔍 **ЛОГИЧЕСКОЕ РАЗЛОЖЕНИЕ:**
+- Разбей проблему на логические шаги
+- Построй цепочку рассуждений от предпосылок к выводам
+- Выяви связи между элементами задачи
+- Рассмотри альтернативные подходы к решению
 
-4. Не добавляй новых идей, не упомянутых в reasoning. Не используй шаблонные советы.
+📊 **ВЫЧИСЛЕНИЯ И ДАННЫЕ:**
+- Проведи необходимые расчёты пошагово
+- Проверь корректность данных и формул
+- Сделай оценки и приближения где нужно
+- Укажи источники неопределённости
 
-Формат ответа: текст, структурированный по смыслу, но без явных заголовков этапов.`,
-  },
- 
+⚖️ **КРИТИЧЕСКАЯ ОЦЕНКА:**
+- Найди слабые места в рассуждениях
+- Рассмотри этические аспекты и ограничения
+- Выяви возможные ошибки и неточности
+- Оцени достоверность и полноту информации
+
+🎯 **ПОДГОТОВКА ОТВЕТА:**
+- Сформулируй 3-5 ключевых тезисов
+- Определи наиболее важные выводы
+- Продумай структуру финального ответа
+- Реши, что включить, а что опустить
+
+Будь максимально подробным в анализе, но сохраняй естественный поток мыслей. Думай вслух, показывай ход мыслей, сомневайся, пересматривай выводы. Не пытайся давать готовый ответ пользователю в этом разделе!`,
+
+  // Промпт для финального ответа
+  finalAnswer: `Сформируй финальный ответ пользователю, используя ТОЛЬКО выводы из внутреннего анализа (reasoning):
+
+📝 **Структура ответа:**
+1. Краткое переформулирование вопроса (если нужно для ясности)
+2. Основной вывод или решение
+3. Ключевые обоснования (2-3 самых важных аргумента)
+4. Практические детали (расчёты, примеры, инструкции)
+5. Важные оговорки или ограничения (если есть)
+
+⚠️ **СТРОГИЕ ПРАВИЛА:**
+- НЕ показывай заголовки этапов ([Основной вывод], [Обоснование] и т.д.)
+- НЕ упоминай процесс анализа ("на основе анализа", "после рассмотрения")  
+- НЕ добавляй информацию, не упомянутую в анализе
+- НЕ используй пустые секции или фразы "нет оговорок", "нет расчетов"
+- НЕ выводи заголовок без содержимого
+
+Пиши естественно, как будто это твоя спонтанная мысль. Финальный ответ должен выглядеть цельным и органичным, без следов искусственной структуры.`,
+
+  // Специализированные промпты для разных типов задач
+  analyticalTask: `Это аналитическая задача. В анализе особое внимание удели:
+- Сбору и верификации фактов
+- Выявлению причинно-следственных связей  
+- Сравнению альтернативных объяснений
+- Оценке надёжности источников и данных`,
+
+  creativeTask: `Это творческая задача. В анализе особое внимание удели:
+- Генерации множественных идей и подходов
+- Оценке оригинальности и практичности решений
+- Учёту ограничений и требований заказчика
+- Балансу между новизной и выполнимостью`,
+
+  technicalTask: `Это техническая задача. В анализе особое внимание удели:
+- Точности технических деталей и терминологии
+- Пошаговой проверке алгоритмов и формул
+- Рассмотрению граничных случаев и ошибок
+- Оценке эффективности и альтернативных решений`,
+
+  ethicalTask: `Задача содержит этические аспекты. В анализе особое внимание удели:
+- Выявлению всех заинтересованных сторон
+- Анализу потенциальных последствий решений
+- Рассмотрению альтернативных этических frameworks
+- Поиску компромиссов между конфликтующими ценностями`,
+
+  // Метапромпт для самооценки качества мышления
+  selfEvaluation: `После анализа оцени качество своих рассуждений:
+- Достаточно ли глубоко я проанализировал проблему?
+- Рассмотрел ли я основные альтернативы и контраргументы?  
+- Не пропустил ли я важные аспекты или ограничения?
+- Логична ли цепочка от анализа к выводам?
+- Если нет - проведи дополнительный анализ проблемных мест.`,
+
+  // Функция для автоопределения языка и формирования промптов
+  detectLanguageAndGetPrompts: (message: string) => {
+    let detectedLang = 'ru';
+    let detectedLangName = 'русском';
+    
+    try {
+      const francCode = franc(message || '');
+      if (francCode && francCode !== 'und') {
+        const langData = langs.where('3', francCode);
+        if (langData) {
+          detectedLang = langData['1'] || detectedLang;
+          detectedLangName = langData.local || langData.name || detectedLangName;
+        }
+      }
+    } catch (error) {
+      console.log('Ошибка определения языка:', error);
+    }
+
+    // Формируем системный промпт с учетом языка
+    let systemPrompt = ADVANCED_THINKING_PROMPTS.baseSystem;
+    // Добавляем требование отвечать на языке пользователя, если язык не русский
+    if (detectedLang !== 'ru') {
+      systemPrompt += `\n\nВНИМАНИЕ: Всегда отвечай только на ${detectedLangName} языке, даже если вопрос был на другом языке.`;
+    }
+
+    return {
+      detectedLang,
+      detectedLangName,
+      systemPrompt,
+      deepReasoning: ADVANCED_THINKING_PROMPTS.deepReasoning,
+      finalAnswer: ADVANCED_THINKING_PROMPTS.finalAnswer
+    };
+  }
+};
+
+// Дополнительные утилиты для улучшения мышления
+const THINKING_ENHANCERS = {
+  // Промпт для принуждения к медленному мышлению
+  slowThinking: `Перед ответом обязательно сделай паузу и подумай медленно. Не торопись с выводами. 
+Представь, что у тебя есть время обдумать проблему с разных сторон.`,
+
+  // Промпт для игры в "адвоката дьявола"
+  devilsAdvocate: `В анализе обязательно сыграй роль "адвоката дьявола" - найди контраргументы 
+к своим первоначальным выводам. Что могло бы пойти не так? Какие есть альтернативные объяснения?`,
+
+  // Промпт для проверки логических ошибок
+  logicCheck: `Проверь свои рассуждения на типичные логические ошибки:
+- Корреляция vs причинность
+- Подтверждающая ошибка  
+- Ложная дилемма
+- Переход от частного к общему
+- Апелляция к авторитету без оснований`,
+
+  // Промпт для многоуровневого мышления
+  layeredThinking: `Думай на нескольких уровнях одновременно:
+- Поверхностный: что лежит на поверхности?
+- Системный: как это связано с более широким контекстом?
+- Мета-уровень: что говорит сама постановка вопроса?
+- Долгосрочный: каковы последствия через месяц/год/десятилетие?`
 };
 
 // Функция для определения простых бытовых вопросов (приветствия и small talk)
@@ -153,28 +269,11 @@ export async function POST(request: NextRequest) {
                    request.headers.get('x-real-ip') || 
                    'unknown';
     
-    // --- Определяем язык сообщения пользователя ---
-    let detectedLang = 'ru';
-    let detectedLangName = 'русском';
-    try {
-      const francCode = franc(message || '');
-      if (francCode && francCode !== 'und') {
-        const langData = langs.where('3', francCode);
-        if (langData) {
-          detectedLang = langData['1'] || detectedLang;
-          detectedLangName = langData.local || langData.name || detectedLangName;
-        }
-      }
-    } catch {}
-    // Если пользователь пишет не на русском и не на английском, добавляем к system-промпту инструкцию писать на его языке
-    let systemPrompt = PROMPTS.ru.system;
-    if (detectedLang !== 'ru' && detectedLang !== 'en') {
-      systemPrompt += `\nВНИМАНИЕ: Всегда отвечай только на ${detectedLangName} языке, даже если вопрос был на другом языке.`;
-    }
+    // Автоматическое определение языка и получение промптов
+    const languageData = ADVANCED_THINKING_PROMPTS.detectLanguageAndGetPrompts(message);
+    const { detectedLang, detectedLangName, systemPrompt } = languageData;
+    
     console.log({ detectedLang, detectedLangName, systemPrompt, message });
-    if (detectedLang !== 'ru' && detectedLang !== 'en') {
-      systemPrompt += `\nПиши на ${detectedLangName} языке.`;
-    }
 
     // Проверяем лимиты для Neironka (LM Studio)
     if (modelId === 'neironka' && !checkUserLimit(userIP)) {
@@ -219,7 +318,6 @@ export async function POST(request: NextRequest) {
     }
 
     const selectedModel = MODEL_MAP[modelId] || 'local-model';
-    const prompts = PROMPTS.ru;
 
     // --- Новый алгоритм: webSearchEnabled ---
     let searchMessage = message;
@@ -238,6 +336,7 @@ export async function POST(request: NextRequest) {
         searchMessage = message;
       }
     }
+
     if (webSearchEnabled) {
       // 1. Получаем только 2 лучших сайта через /api/web-search
       const webSearchRes = await fetch(`${request.nextUrl.origin}/api/web-search`, {
@@ -249,6 +348,7 @@ export async function POST(request: NextRequest) {
       if (!webSearchRes.ok || !webSearchData.results || !Array.isArray(webSearchData.results) || webSearchData.results.length === 0) {
         return NextResponse.json({ error: 'Не удалось найти сайты для поиска' }, { status: 500 });
       }
+      
       // Берём до 4 сайтов
       const links = webSearchData.results.slice(0, 4);
       // 2. Для каждого сайта — извлекаем текст и сжимаем через /api/compress
@@ -271,6 +371,7 @@ export async function POST(request: NextRequest) {
         } catch {
           continue;
         }
+        
         // 2.2. Сжимаем текст до 250 символов через /api/compress
         let summary = '';
         try {
@@ -290,8 +391,10 @@ export async function POST(request: NextRequest) {
         }
         summaries.push({ url: link.url, title: link.title, summary });
       }
+      
       // 3. Формируем финальный промпт только из summary
       let finalPrompt = `Пользователь хочет: ${message}\n\nВот что удалось узнать из сайтов:\n${summaries.map((a, i) => `[${i+1}] ${a.title} (${a.url})\n${a.summary}`).join('\n\n')}\n\nСформулируй итоговый ответ для пользователя, строго опираясь только на эти выводы.`;
+      
       // Логируем длину промпта и количество сайтов
       console.log(`[AI] Отправляем в LM Studio summary-промпт длиной ${finalPrompt.length} символов, сайтов: ${summaries.length}`);
       if (finalPrompt.length > 4000) {
@@ -313,11 +416,13 @@ export async function POST(request: NextRequest) {
           console.log('[AI] Ошибка при сжатии summary-промпта:', err);
         }
       }
+      
       const t0 = Date.now();
       let answer = '';
       let reasoning = null;
+      
       if (webSearchEnabled && reasoningEnabled) {
-        // reasoning-логика (оставляем как есть)
+        // reasoning-логика с веб-поиском
         // Сначала получаем финальный ответ по сайтам
         let sitesAnswer = '';
         if (modelId === 'neironka') {
@@ -341,8 +446,9 @@ export async function POST(request: NextRequest) {
           });
           sitesAnswer = completion.choices[0].message.content || '';
         }
+        
         // Теперь reasoning-промпт по этому ответу
-        const reasoningPrompt = `${prompts.reasoning}\n\nВот информация, которую удалось собрать по вашему запросу из сайтов:\n${sitesAnswer}\n\nПроанализируй эти данные, объясни логику, сделай пошаговый разбор и только потом дай финальный вывод.`;
+        const reasoningPrompt = `${languageData.deepReasoning}\n\nВот информация, которую удалось собрать по вашему запросу из сайтов:\n${sitesAnswer}\n\nПроанализируй эти данные, объясни логику, сделай пошаговый разбор и только потом дай финальный вывод.`;
         if (modelId === 'neironka') {
           reasoning = await askLMStudio([
             { role: 'system', content: systemPrompt + (reasoningPrompt ? '\n' + reasoningPrompt : '') },
@@ -367,29 +473,31 @@ export async function POST(request: NextRequest) {
           reasoning = completion.choices[0].message.content || '';
         }
         answer = sitesAnswer;
-      }
-      // Обычный финальный ответ (поиск без reasoning)
-      if (modelId === 'neironka') {
-        answer = await askLMStudio([
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: finalPrompt }
-        ], 0.7, 1000);
-        if (answer === '__LMSTUDIO_CONNECTION_ERROR__') {
-          return NextResponse.json({ error: 'У вас нестабильное соединение с моделью. Попробуйте позже.' }, { status: 503 });
-        }
       } else {
-        const openai = getOpenAI(apiKey);
-        const completion = await openai.chat.completions.create({
-          model: selectedModel,
-          messages: [
+        // Обычный финальный ответ (поиск без reasoning)
+        if (modelId === 'neironka') {
+          answer = await askLMStudio([
             { role: 'system', content: systemPrompt },
             { role: 'user', content: finalPrompt }
-          ],
-          max_tokens: 1000,
-          temperature: 0.7,
-        });
-        answer = completion.choices[0].message.content || '';
+          ], 0.7, 1000);
+          if (answer === '__LMSTUDIO_CONNECTION_ERROR__') {
+            return NextResponse.json({ error: 'У вас нестабильное соединение с моделью. Попробуйте позже.' }, { status: 503 });
+          }
+        } else {
+          const openai = getOpenAI(apiKey);
+          const completion = await openai.chat.completions.create({
+            model: selectedModel,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: finalPrompt }
+            ],
+            max_tokens: 1000,
+            temperature: 0.7,
+          });
+          answer = completion.choices[0].message.content || '';
+        }
       }
+      
       const t1 = Date.now();
       console.log(`[AI] Время поиска и генерации ответа LM Studio: ${t1 - t0} мс`);
       return NextResponse.json({
@@ -472,7 +580,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (isSimpleGreeting(message)) {
+    // Проверяем простые приветствия только если reasoning НЕ включен
+    if (!reasoningEnabled && isSimpleGreeting(message)) {
       // Для простых бытовых вопросов используем короткий промпт
       const messages: { role: "system" | "user"; content: string }[] = [
         {
@@ -512,7 +621,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    if (isGreetingWithAction(message)) {
+    if (!reasoningEnabled && isGreetingWithAction(message)) {
       // Для бытовых вопросов с приветствием и действием используем дружелюбный промпт с краткой инструкцией
       const messages: { role: "system" | "user"; content: string }[] = [
         {
@@ -692,6 +801,10 @@ export async function POST(request: NextRequest) {
       if (webSearchEnabled && (webSearchSummary || webSearchSnippets)) {
         answerContextBlock = `\n\nВот результаты веб-поиска по вашему запросу:\n${webSearchSummary}\n\n${webSearchSnippets}`;
       }
+      let reasoningText = '';
+      if (reasoningEnabled) {
+        reasoningText = reasoning;
+      }
       const answerMessages = [
         {
           role: "system",
@@ -700,7 +813,7 @@ export async function POST(request: NextRequest) {
         ...conversationHistory,
         {
           role: "user",
-          content: `Сформируй ответ по строгому шаблону:\n${prompts.finalAnswer}\n\nВот твой внутренний анализ:\n${shortReasoning}\n\nВопрос пользователя: ${message}` + (answerContextBlock ? '\n' + answerContextBlock : '')
+          content: `Сформируй ответ по строгому шаблону:\n${languageData.finalAnswer}\n\nВот твой внутренний анализ:\n${reasoningText}\n\nВопрос пользователя: ${message}` + (answerContextBlock ? '\n' + answerContextBlock : '')
         }
       ];
 

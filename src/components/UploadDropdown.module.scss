@@ -305,3 +305,97 @@
     width: 100%;
   }
 } 
+
+.translateBookForm {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  padding: 0;
+}
+
+.translateBookFileLabel {
+  display: flex;
+  align-items: center;
+  background: #23232a;
+  color: #f59e42;
+  font-weight: 600;
+  border: 1.5px solid #23232a;
+  border-radius: 12px;
+  padding: 12px 18px;
+  cursor: pointer;
+  font-size: 1.08rem;
+  margin-bottom: 0;
+  transition: background 0.18s, color 0.18s, border 0.18s;
+  &:hover, &:focus {
+    background: #29292f;
+    color: #fff;
+    border-color: #ff9800;
+  }
+}
+
+.translateBookFileInput {
+  display: none;
+}
+
+.translateBookFileName {
+  color: #bbb;
+  font-size: 0.98em;
+  margin: 4px 0 0 0;
+  padding-left: 2px;
+}
+
+.translateBookSelect, .translateBookCustomInput {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1.5px solid #e5e7eb;
+  background: #18181a;
+  color: #fff;
+  font-size: 1.05rem;
+  margin-bottom: 0;
+  outline: none;
+  transition: border 0.18s;
+  &:focus {
+    border-color: #f59e42;
+  }
+}
+
+.translateBookSubmitBtn {
+  background: linear-gradient(135deg, #f59e42 0%, #ff9800 100%);
+  color: #23232a;
+  font-weight: 700;
+  font-size: 1.08rem;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 0;
+  margin-top: 4px;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s;
+  &:hover, &:focus {
+    background: #ff9800;
+    color: #fff;
+  }
+  &:disabled {
+    background: #bbb;
+    color: #23232a;
+    cursor: not-allowed;
+  }
+}
+
+.translateBookCancelBtn {
+  background: #374151;
+  color: #fff;
+  font-weight: 600;
+  font-size: 1.05rem;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 0;
+  margin-top: 2px;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s;
+  &:hover, &:focus {
+    background: #23232a;
+    color: #f59e42;
+  }
+} 

@@ -500,6 +500,8 @@
   display: flex;
   flex-direction: column;
   gap: 28px;
+  max-width: 900px;
+  margin: 0 auto;
 }
 .welcomeMessage {
   text-align: center;
@@ -515,7 +517,8 @@
 .message {
   display: flex;
   gap: 14px;
-  max-width: 70%;
+  max-width: 90%;
+  min-width: 220px;
   margin-left: auto;
   margin-right: auto;
   animation: slideIn 0.3s ease-out;
@@ -531,9 +534,9 @@
   }
 }
 .userMessage {
-  margin-left: 30%;
-  margin-right: 0;
   align-self: flex-end;
+  margin-left: 20%;
+  margin-right: 0;
   .messageContent {
     background: var(--sidebar-btn-bg);
     color: var(--foreground);
@@ -541,9 +544,9 @@
   }
 }
 .aiMessage {
-  margin-left: 0;
-  margin-right: 30%;
   align-self: flex-start;
+  margin-left: 0;
+  margin-right: 20%;
   flex-direction: column;
   .messageContent {
     background: var(--sidebar-btn-bg);
@@ -1991,6 +1994,15 @@
 .controlBtn, .modelSelector {
   z-index: 2;
   cursor: pointer;
+}
+
+.controlBtn[disabled], .controlBtn.disabled {
+  background: #e0e0e0 !important;
+  color: #b0b0b0 !important;
+  border-color: #cccccc !important;
+  opacity: 0.7;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
 }
 
 @media (max-width: 480px) {

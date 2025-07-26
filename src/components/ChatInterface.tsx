@@ -10,7 +10,7 @@ import UploadDropdown from './UploadDropdown';
 import SettingsModal from './SettingsModal';
 import ShareModal from './ShareModal';
 import styles from './ChatInterface.module.scss';
-import { FiPlus, FiTrash2, FiLogOut, FiMessageSquare, FiUser, FiSend, FiUpload, FiSettings, FiX, FiZap, FiSearch, FiChevronDown, FiChevronUp, FiChevronLeft, FiChevronRight, FiShare2, FiMenu, FiCopy, FiRefreshCw, FiEdit2, FiGlobe } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiLogOut, FiMessageSquare, FiUser, FiSend, FiUpload, FiSettings, FiX, FiZap, FiSearch, FiChevronDown, FiChevronUp, FiChevronLeft, FiChevronRight, FiShare2, FiMenu, FiCopy, FiRefreshCw, FiEdit2, FiGlobe, FiDownload, FiBookOpen } from 'react-icons/fi';
 import { FaRobot } from 'react-icons/fa';
 import Tesseract from 'tesseract.js';
 import { supabase } from '@/lib/supabaseClient';
@@ -18,6 +18,9 @@ import Image from 'next/image';
 import AnimatedBotBall from './AnimatedBotBall';
 import mammoth from 'mammoth';
 import { useTheme } from 'next-themes';
+import ePub from 'epubjs';
+import JsFile from 'jsfile';
+import JsFileFb from 'jsfile-fb';
 
 interface Model {
   id: string;
@@ -224,6 +227,64 @@ function AnimatedHamburger({ isOpen, onClick }: { isOpen: boolean, onClick: () =
   );
 }
 
+type OnlineBookReaderProps = {
+  text: string;
+  onClose: () => void;
+};
+
+function OnlineBookReader({ text, onClose }: OnlineBookReaderProps) {
+  const { t } = useTranslation();
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
+  const paragraphs = text.split('\n').filter((p: string) => p.trim().length > 0);
+  const PARAGRAPHS_PER_PAGE = 15;
+  const [page, setPage] = useState(0);
+  const totalPages = Math.ceil(paragraphs.length / PARAGRAPHS_PER_PAGE);
+  const currentParagraphs = paragraphs.slice(
+    page * PARAGRAPHS_PER_PAGE,
+    (page + 1) * PARAGRAPHS_PER_PAGE
+  );
+  const contentRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (contentRef.current) {
+      contentRef.current.scrollTop = 0;
+    }
+  }, [page]);
+  return (
+    <div style={{
+      position: 'fixed',
+      top: '10%',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      background: isLight ? '#fff' : '#18181a',
+      color: isLight ? '#23232a' : '#fff',
+      borderRadius: 18,
+      boxShadow: isLight ? '0 8px 48px rgba(40, 80, 180, 0.10)' : '0 8px 48px rgba(40, 80, 180, 0.10)',
+      maxWidth: 600,
+      width: '90vw',
+      maxHeight: '80vh',
+      zIndex: 1000,
+      display: 'flex',
+      flexDirection: 'column',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 24px 8px 24px', fontSize: '1.2rem', fontWeight: 700 }}>
+        <span>{t('onlineBookTitle')}</span>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#f59e42', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
+      </div>
+      <div ref={contentRef} style={{ padding: '0 24px 0 24px', overflowY: 'auto', flex: 1 }}>
+        {currentParagraphs.map((p: string, idx: number) => (
+          <p key={idx} style={{ marginBottom: 16 }}>{p}</p>
+        ))}
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 24px 18px 24px', background: isLight ? '#f7f8fa' : '#23232a', borderRadius: '0 0 18px 18px' }}>
+        <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0} style={{ padding: '6px 18px', borderRadius: 8, background: '#f59e42', color: '#23232a', border: 'none', fontWeight: 600, cursor: page === 0 ? 'not-allowed' : 'pointer', opacity: page === 0 ? 0.5 : 1 }}>{t('onlineBookPrev')}</button>
+        <span>{t('onlineBookPage')} {page + 1} {t('onlineBookOf')} {totalPages}</span>
+        <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page === totalPages - 1} style={{ padding: '6px 18px', borderRadius: 8, background: '#f59e42', color: '#23232a', border: 'none', fontWeight: 600, cursor: page === totalPages - 1 ? 'not-allowed' : 'pointer', opacity: page === totalPages - 1 ? 0.5 : 1 }}>{t('onlineBookNext')}</button>
+      </div>
+    </div>
+  );
+}
+
 export default function ChatInterface() {
   const [message, setMessage] = useState('');
   const [newChatTitle, setNewChatTitle] = useState('');
@@ -235,13 +296,14 @@ export default function ChatInterface() {
   const [showUploadDropdown, setShowUploadDropdown] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const clearError = () => setError(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const {
     chats,
     currentChatId,
     isLoading,
-    error,
     sendMessage,
     createChat,
     deleteChat,
@@ -249,7 +311,6 @@ export default function ChatInterface() {
     changeModel,
     toggleReasoning,
     toggleWebSearch,
-    clearError,
     chatThemeLight,
     renameChat, // добавили
   } = useChatStore();
@@ -265,6 +326,9 @@ export default function ChatInterface() {
   const [editingTitle, setEditingTitle] = useState('');
   const [mobileBtnHover, setMobileBtnHover] = useState<string | null>(null);
   const [mobileBtnActive, setMobileBtnActive] = useState<string | null>(null);
+  const [bookTranslationProgress, setBookTranslationProgress] = useState<{current: number, total: number, status: string} | null>(null);
+  const [bookFile, setBookFile] = useState<File | null>(null);
+  const [showBook, setShowBook] = useState(false);
 
   const { t, language } = useTranslation();
 
@@ -419,11 +483,9 @@ export default function ChatInterface() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!(message.trim() || uploadedFile) || isLoading) return;
-    setMessage(''); // Очищаем инпут сразу после отправки!
-    // Если нет активного чата — создать его автоматически
+    setMessage('');
     if (!currentChatId) {
       createChat(t('newChat'), models[0]?.id || 'neironka');
-      // Ждём, пока currentChatId появится (асинхронно)
       let waitCount = 0;
       while (!useChatStore.getState().currentChatId && waitCount < 20) {
         await new Promise(res => setTimeout(res, 50));
@@ -432,11 +494,10 @@ export default function ChatInterface() {
     }
     const chatId = useChatStore.getState().currentChatId;
     if (!chatId) {
-      alert('Не удалось создать чат. Попробуйте ещё раз.');
+      setError('Не удалось создать чат. Попробуйте ещё раз.');
       return;
     }
     if (uploadedFile) {
-      // 1. Считать содержимое файла
       let fileContent = '';
       try {
         if (uploadedFile.type.startsWith('image/')) {
@@ -451,11 +512,16 @@ export default function ChatInterface() {
           const { value } = await mammoth.extractRawText({ arrayBuffer });
           fileContent = value;
         } else if (uploadedFile.name.endsWith('.doc')) {
-          alert('Формат .doc поддерживается ограниченно. Попробуйте сначала сохранить файл как .docx.');
+          setError('Формат .doc поддерживается ограниченно. Попробуйте сначала сохранить файл как .docx.');
           fileContent = '';
         }
       } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
         fileContent = `[Ошибка извлечения текста из файла "${uploadedFile.name}"]`;
+      }
+      // Если ошибка — не отправлять сообщение
+      if (fileContent.startsWith('[Ошибка')) {
+        return;
       }
       // 2. Если файл большой — сжать
       if (fileContent.length > CHUNK_SIZE) {
@@ -670,16 +736,236 @@ export default function ChatInterface() {
     setUploadedFile(null);
   };
 
+  async function extractTextFromAnyFile(file: File): Promise<string> {
+    if (file.type === 'application/pdf') {
+      return await extractTextFromPDF(file);
+    } else if (file.type.startsWith('text/') || file.type === 'application/json') {
+      return await file.text();
+    } else if (file.name.endsWith('.docx')) {
+      const arrayBuffer = await file.arrayBuffer();
+      const { value } = await mammoth.extractRawText({ arrayBuffer });
+      return value;
+    } else if (file.name.endsWith('.doc')) {
+      return '[Формат .doc поддерживается ограниченно. Сохраните как .docx]';
+    } else if (file.name.endsWith('.epub')) {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const book = await ePub(arrayBuffer);
+        const spineItems = book.spine.get();
+        let text = '';
+        for (const section of Object.values(spineItems)) {
+          const sectionText = await section.load('text');
+          text += sectionText + '\n';
+        }
+        return text;
+      } catch (err) {
+        return '[Ошибка извлечения текста из EPUB: ' + (err instanceof Error ? err.message : String(err)) + ']';
+      }
+    } else if (file.name.endsWith('.fb2')) {
+      try {
+        const text = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = function() {
+            try {
+              const jf = new JsFile({
+                name: file.name,
+                type: file.type,
+                buffer: reader.result as ArrayBuffer,
+              });
+              jf.read().then((result: any) => {
+                // result[0].content содержит массив параграфов
+                resolve(result[0].content.map((p: any) => p.text).join('\n'));
+              }).catch(reject);
+            } catch (e) {
+              reject(e);
+            }
+          };
+          reader.onerror = reject;
+          reader.readAsArrayBuffer(file);
+        });
+        return text;
+      } catch (err) {
+        return '[Ошибка извлечения текста из FB2: ' + (err instanceof Error ? err.message : String(err)) + ']';
+      }
+    } else if (file.type.startsWith('image/')) {
+      const { data: { text } } = await Tesseract.recognize(file, 'eng+rus');
+      return text;
+    } else {
+      return '[Формат не поддерживается]';
+    }
+  }
+
+  const handleTranslateBook = async (file: File, language: string) => {
+    setFileLoading(true);
+    setBookFile(file);
+    setBookTranslationProgress({ current: 0, total: 0, status: 'start' });
+    
+    try {
+      // Проверяем размер файла (максимум 5MB)
+      const maxFileSize = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxFileSize) {
+        alert(`Файл слишком большой. Максимальный размер: 5MB. Текущий размер: ${(file.size / 1024 / 1024).toFixed(1)}MB`);
+        setFileLoading(false);
+        setBookTranslationProgress(null);
+        setBookFile(null);
+        return;
+      }
+
+      let fileContent = await extractTextFromAnyFile(file);
+      if (!fileContent || fileContent.trim().length === 0) {
+        alert('Не удалось извлечь текст из файла.');
+        setFileLoading(false);
+        setBookTranslationProgress(null);
+        setBookFile(null);
+        return;
+      }
+
+      // Для книг убираем ограничение на размер текста - будем переводить по частям
+      console.log(`[translate-book] Размер текста для перевода: ${fileContent.length} символов`);
+
+      const CHUNK_SIZE = 1000;
+      const chunks = [];
+      for (let i = 0; i < fileContent.length; i += CHUNK_SIZE) {
+        chunks.push(fileContent.slice(i, i + CHUNK_SIZE));
+      }
+
+      let currentChatId = useChatStore.getState().currentChatId;
+      if (!currentChatId) {
+        useChatStore.getState().createChat('Перевод книги');
+        let waitCount = 0;
+        while (!useChatStore.getState().currentChatId && waitCount < 20) {
+          await new Promise(res => setTimeout(res, 50));
+          waitCount++;
+        }
+        currentChatId = useChatStore.getState().currentChatId;
+      }
+
+      setBookTranslationProgress({ current: 0, total: chunks.length, status: 'progress' });
+      let translatedChunks: string[] = [];
+
+      // Функция для отправки запроса с retry логикой
+      const translateChunkWithRetry = async (chunk: string, chunkIndex: number, maxRetries = 3) => {
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          try {
+            // Создаем AbortController для таймаута
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 секунд таймаут
+
+            const resp = await fetch('/api/translate-book', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text: chunk, language }),
+              signal: controller.signal
+            });
+
+            clearTimeout(timeoutId);
+
+            if (!resp.ok) {
+              const data = await resp.json();
+              throw new Error(data.error || `HTTP ${resp.status}`);
+            }
+
+            const data = await resp.json();
+            if (!data.translation) {
+              throw new Error('Пустой ответ от сервера перевода');
+            }
+
+            return data.translation;
+          } catch (error: any) {
+            console.error(`[translate-book] Попытка ${attempt} для чанка ${chunkIndex + 1}:`, error);
+            
+            if (attempt === maxRetries) {
+              throw new Error(`Не удалось перевести часть ${chunkIndex + 1} после ${maxRetries} попыток: ${error.message}`);
+            }
+            
+            // Пауза перед следующей попыткой (увеличивается с каждой попыткой)
+            await new Promise(res => setTimeout(res, 1000 * attempt));
+          }
+        }
+      };
+
+      // Переводим чанки с ограничением параллельных запросов
+      const maxConcurrentRequests = 2;
+      const semaphore = { count: 0 };
+      
+      const processChunk = async (chunk: string, index: number) => {
+        while (semaphore.count >= maxConcurrentRequests) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+        semaphore.count++;
+        try {
+          const translation = await translateChunkWithRetry(chunk, index);
+          translatedChunks[index] = translation;
+          setBookTranslationProgress({ current: index + 1, total: chunks.length, status: 'progress' });
+        } finally {
+          semaphore.count--;
+        }
+      };
+
+      // Запускаем перевод всех чанков
+      const promises = chunks.map((chunk, index) => processChunk(chunk, index));
+      await Promise.all(promises);
+
+      setBookTranslationProgress({ current: chunks.length, total: chunks.length, status: 'done' });
+      setBookFile(null);
+      setTimeout(() => setBookTranslationProgress(null), 3000);
+
+      // Собираем итоговый текст
+      const finalText = translatedChunks.join('\n');
+      const blob = new Blob([finalText], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+
+      // Добавляем в чат сообщение с кнопкой скачать
+      const now = new Date();
+      useChatStore.setState((state) => {
+        const chat = state.chats.find((c) => c.id === currentChatId);
+        if (!chat || !Array.isArray(chat.messages)) return state;
+        return {
+          chats: state.chats.map((chat) => {
+            if (chat.id === currentChatId) {
+              return {
+                ...chat,
+                messages: [
+                  ...chat.messages,
+                  {
+                    id: (Date.now() + Math.random()).toString(),
+                    role: 'assistant',
+                    content: 'Перевод готов! [Скачать файл]',
+                    timestamp: now,
+                    fileName: `translated_${file.name}`,
+                    fileType: 'translated-book',
+                    fileSize: finalText.length,
+                    fileContent: finalText,
+                    downloadUrl: url
+                  }
+                ]
+              };
+            }
+            return chat;
+          })
+        };
+      });
+    } catch (err) {
+      console.error('[translate-book] Ошибка:', err);
+      alert('Ошибка при переводе книги: ' + (err instanceof Error ? err.message : err));
+      setBookTranslationProgress(null);
+      setBookFile(null);
+    } finally {
+      setFileLoading(false);
+    }
+  };
+
   async function extractTextFromPDF(file: File): Promise<string> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = async function () {
-        // @ts-ignore
-        const pdfjsLib = await import('pdfjs-dist/build/pdf');
-        // @ts-ignore
-        pdfjsLib.GlobalWorkerOptions.workerSrc = '//cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.worker.min.js';
-        const typedarray = new Uint8Array(reader.result as ArrayBuffer);
-        pdfjsLib.getDocument({ data: typedarray }).promise.then(async (pdf: any) => {
+        try {
+          // @ts-ignore
+          const pdfjsLib = await import('pdfjs-dist/build/pdf');
+          pdfjsLib.disableWorker = true;
+          const typedarray = new Uint8Array(reader.result as ArrayBuffer);
+          const pdf = await pdfjsLib.getDocument({ data: typedarray }).promise;
           let text = '';
           for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);
@@ -687,7 +973,9 @@ export default function ChatInterface() {
             text += content.items.map((item: any) => item.str).join(' ') + '\n';
           }
           resolve(text);
-        });
+        } catch (err) {
+          reject(err instanceof Error ? err : new Error('Ошибка при чтении PDF'));
+        }
       };
       reader.readAsArrayBuffer(file);
     });
@@ -733,6 +1021,20 @@ export default function ChatInterface() {
     const base = dotIdx !== -1 ? name.slice(0, dotIdx) : name;
     if (base.length <= 6) return name;
     return base.slice(0, 2) + '...' + ext;
+  }
+
+  function renderFileChip() {
+    return Boolean(uploadedFile) && !bookFile ? (
+      <span className={styles.fileChipWrapper}>
+        <span className={styles.fileChip}>
+          <FiUpload className={styles.fileChipIcon} />
+          <span className={styles.fileName}>{uploadedFile?.name}</span>
+          <button type="button" className={styles.fileChipRemove} onClick={handleRemoveFile} title={t('fileRemove')}>
+            <FiX />
+          </button>
+        </span>
+      </span>
+    ) : null;
   }
 
   if (!isHydrated) {
@@ -874,14 +1176,14 @@ export default function ChatInterface() {
 
         {/* Мобильное меню (гамбургер) */}
         {typeof window !== 'undefined' && window.innerWidth <= 767 && (
-          <>
+          <div>
             <div className={styles.mobileHeader}>
               <AnimatedBotBall size={32} />
               <span className={styles.appName} style={{ color: chatThemeLight ? '#000' : '#ededed' }}>Neironka Ai</span>
               <AnimatedHamburger isOpen={mobileMenuOpen} onClick={() => setMobileMenuOpen(!mobileMenuOpen)} />
             </div>
-            {mobileMenuOpen && (
-              <AnimatePresence initial={false}>
+            <AnimatePresence initial={false}>
+              {mobileMenuOpen && (
                 <motion.div
                   key="mobile-menu-overlay"
                   initial={{ opacity: 0 }}
@@ -920,56 +1222,71 @@ export default function ChatInterface() {
                             style={{ color: chatThemeLight ? '#23232a' : '#fff' }}
                           >
                             <FiMessageSquare style={{marginRight: 6}} />{chat.title}</span>
-                        <div className={styles.chatActions}>
-                          <button
-                            className={styles.shareChatBtn}
-                            onClick={(e) => { e.stopPropagation(); setShowShareModal(true); }}
-                            title="Поделиться чатом"
-                          >
-                            <FiShare2 />
-                          </button>
-                          <button
-                            className={styles.deleteChatBtn}
-                            onClick={(e) => { e.stopPropagation(); deleteChat(chat.id); }}
-                            title={t('deleteChat')}
-                          >
-                            <FiTrash2 />
-                          </button>
+                          <div className={styles.chatActions}>
+                            <button
+                              className={styles.shareChatBtn}
+                              onClick={(e) => { e.stopPropagation(); setShowShareModal(true); }}
+                              title="Поделиться чатом"
+                            >
+                              <FiShare2 />
+                            </button>
+                            <button
+                              className={styles.deleteChatBtn}
+                              onClick={(e) => { e.stopPropagation(); deleteChat(chat.id); }}
+                              title={t('deleteChat')}
+                            >
+                              <FiTrash2 />
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className={styles.newChatBox}>
-                    <input
-                      type="text"
-                      placeholder={t('chatTitle')}
-                      value={newChatTitle}
-                      onChange={(e) => setNewChatTitle(e.target.value)}
-                      className={styles.newChatInput}
-                      onKeyDown={(e) => { if (e.key === 'Enter') handleCreateChat(); }}
-                    />
-                    <button className={styles.newChatBtn} onClick={handleCreateChat} title={t('newChat')}>
-                      <FiPlus />
-                    </button>
-                  </div>
-                  <div className={styles.sidebarFooter}>
-                    <div className={styles.userInfoSidebar}>
-                      <span className={styles.avatarSidebar}><FiUser /></span>
-                      <span className={styles.userNameSidebar}>{user?.name || t('user')}</span>
+                      ))}
                     </div>
-                    <button className={styles.logoutSidebar} onClick={logout} title={t('logout')}>
-                      <FiLogOut />
-                    </button>
-                  </div>
+                    <div className={styles.newChatBox}>
+                      <input
+                        type="text"
+                        placeholder={t('chatTitle')}
+                        value={newChatTitle}
+                        onChange={(e) => setNewChatTitle(e.target.value)}
+                        className={styles.newChatInput}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleCreateChat(); }}
+                      />
+                      <button className={styles.newChatBtn} onClick={handleCreateChat} title={t('newChat')}>
+                        <FiPlus />
+                      </button>
+                    </div>
+                    <div className={styles.sidebarFooter}>
+                      <div className={styles.userInfoSidebar}>
+                        <span className={styles.avatarSidebar}><FiUser /></span>
+                        <span className={styles.userNameSidebar}>{user?.name || t('user')}</span>
+                      </div>
+                      <button className={styles.logoutSidebar} onClick={logout} title={t('logout')}>
+                        <FiLogOut />
+                      </button>
+                    </div>
+                  </motion.div>
                 </motion.div>
-              </motion.div>
+              )}
             </AnimatePresence>
-          )}
-        </>
+          </div>
         )}
 
         {/* Main Chat Area */}
         <main className={styles.chatContainer}>
+          {/* Статус перевода книги */}
+          {bookTranslationProgress && (
+            <div style={{
+              background: '#23232a', color: '#f59e42', borderRadius: 10, padding: '14px 18px', margin: '18px auto', maxWidth: 420, textAlign: 'center', fontWeight: 600, fontSize: '1.08em', boxShadow: '0 2px 8px rgba(245,158,66,0.10)'
+            }}>
+              {bookTranslationProgress.status === 'progress' && (
+                <>
+                  Перевод книги: чанк {bookTranslationProgress.current} из {bookTranslationProgress.total}...
+                </>
+              )}
+              {bookTranslationProgress.status === 'done' && (
+                <>Перевод завершён!</>
+              )}
+            </div>
+          )}
           <div className={styles.messagesContainer} style={isMobile ? { paddingBottom: 130 } : {}}>
             {!currentChat || currentChat.messages.length === 0 ? (
               <div className={styles.welcomeMessage}>
@@ -1084,7 +1401,64 @@ export default function ChatInterface() {
                               {msg.fileSize && <span className={styles.fileSize}>{(msg.fileSize / 1024).toFixed(2)} KB</span>}
                             </div>
                           )}
-                          <MessageRenderer content={msg.role === 'assistant' && msg.answer ? msg.answer : msg.content} themeLight={chatThemeLight} role={msg.role} />
+                          {msg.fileType === 'translated-book' && msg.downloadUrl ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                              <div style={{ display: 'flex', flexDirection: 'row', gap: 12, alignItems: 'center', margin: '8px 0' }}>
+                                <a
+                                  href={msg.downloadUrl}
+                                  download={msg.fileName}
+                                  className={styles.downloadBtn}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                    background: '#f59e42',
+                                    color: '#23232a',
+                                    padding: '10px 22px',
+                                    borderRadius: 16,
+                                    fontWeight: 600,
+                                    fontSize: '1.08rem',
+                                    textDecoration: 'none',
+                                    boxShadow: '0 2px 12px rgba(249, 115, 22, 0.07)',
+                                    transition: 'background 0.2s',
+                                  }}
+                                >
+                                  <FiDownload size={20} />
+                                  {t('download')}
+                                </a>
+                                <button
+                                  onClick={() => setShowBook(true)}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                    background: '#f59e42',
+                                    color: '#23232a',
+                                    padding: '10px 22px',
+                                    borderRadius: 16,
+                                    fontWeight: 600,
+                                    fontSize: '1.08rem',
+                                    textDecoration: 'none',
+                                    boxShadow: '0 2px 12px rgba(249, 115, 22, 0.07)',
+                                    border: 'none',
+                                    transition: 'background 0.2s',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  <FiBookOpen size={20} />
+                                  {t('onlineRead')}
+                                </button>
+                              </div>
+                              <div style={{ color: '#f59e42', fontWeight: 500, marginTop: 4, fontSize: '1.01rem' }}>
+                                {t('translatedFileNote')}
+                              </div>
+                              {showBook && (
+                                <OnlineBookReader text={msg.fileContent || ''} onClose={() => setShowBook(false)} />
+                              )}
+                            </div>
+                          ) : (
+                            <MessageRenderer content={msg.role === 'assistant' && msg.answer ? msg.answer : msg.content} themeLight={chatThemeLight} role={msg.role} />
+                          )}
                         </div>
                         {/* Кнопки ссылок для обычных сообщений AI */}
                         {msg.role === 'assistant' && Array.isArray(msg.searchSources) && msg.searchSources.length > 0 && (
@@ -1255,26 +1629,15 @@ export default function ChatInterface() {
           )}
           {isMobile && (
             <form onSubmit={handleSubmit} className={styles.chatInputBar} style={{position: 'fixed', left: 0, right: 0, bottom: 64, zIndex: 101, width: '100vw', margin: 0}}>
-              {/* Файл (чип) */}
-              {uploadedFile && (
-                <span className={styles.fileChipWrapper}>
-                  <span className={styles.fileChip}>
-                    <FiUpload className={styles.fileChipIcon} />
-                    <span className={styles.fileName}>{uploadedFile.name}</span>
-                    <button type="button" className={styles.fileChipRemove} onClick={handleRemoveFile} title={t('fileRemove')}>
-                      <FiX />
-                    </button>
-                  </span>
-                </span>
-              )}
+              {renderFileChip()}
               <div className={styles.inputRow}>
                 <textarea
                   className={styles.inputBarInput}
                   value={message}
                   onChange={e => setMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder={uploadedFile ? `Введите вопрос о файле \"${uploadedFile.name}\"...` : (currentChat && models.find(m => m.id === currentChat.modelId)?.name ? `${t('message')} ${models.find(m => m.id === currentChat.modelId)?.name}` : t('messagePlaceholder'))}
-                  disabled={isLoading || isThinking || !currentChatId}
+                  placeholder={uploadedFile ? `Введите вопрос о файле "${uploadedFile?.name}"...` : (currentChat && models.find(m => m.id === currentChat.modelId)?.name ? `${t('message')} ${models.find(m => m.id === currentChat.modelId)?.name}` : t('messagePlaceholder'))}
+                  disabled={isLoading || isThinking || !currentChatId || !!bookFile}
                   rows={1}
                   style={{
                     resize: 'none',
@@ -1306,7 +1669,7 @@ export default function ChatInterface() {
                 <button
                   type="submit"
                   className={styles.sendBtn}
-                  disabled={(!message.trim() && !uploadedFile) || isLoading || isThinking || !currentChatId}
+                  disabled={(!message.trim() && !uploadedFile) || isLoading || isThinking || !currentChatId || !!bookFile}
                   title={t('send')}
                 >
                   <FiSend />
@@ -1316,25 +1679,14 @@ export default function ChatInterface() {
           )}
           {!isMobile && (
             <form onSubmit={handleSubmit} className={styles.chatInputBar}>
-              {/* Файл (чип) */}
-              {uploadedFile && (
-                <span className={styles.fileChipWrapper}>
-                  <span className={styles.fileChip}>
-                    <FiUpload className={styles.fileChipIcon} />
-                    <span className={styles.fileName}>{uploadedFile.name}</span>
-                    <button type="button" className={styles.fileChipRemove} onClick={handleRemoveFile} title={t('fileRemove')}>
-                      <FiX />
-                    </button>
-                  </span>
-                </span>
-              )}
+              {renderFileChip()}
               <div className={styles.inputRow}>
                 <textarea
                   className={styles.inputBarInput}
                   value={message}
                   onChange={e => setMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder={uploadedFile ? `Введите вопрос о файле \"${uploadedFile.name}\"...` : (currentChat && models.find(m => m.id === currentChat.modelId)?.name ? `${t('message')} ${models.find(m => m.id === currentChat.modelId)?.name}` : t('messagePlaceholder'))}
+                  placeholder={uploadedFile ? `Введите вопрос о файле "${uploadedFile?.name}"...` : (currentChat && models.find(m => m.id === currentChat.modelId)?.name ? `${t('message')} ${models.find(m => m.id === currentChat.modelId)?.name}` : t('messagePlaceholder'))}
                   disabled={isLoading || isThinking || !currentChatId}
                   rows={1}
                   style={{
@@ -1387,6 +1739,26 @@ export default function ChatInterface() {
                   onClick={handleToggleReasoning}
                   disabled={!currentChat}
                   title={t('deepThinkTooltip')}
+                  style={!currentChat
+                    ? {
+                        background: '#444',
+                        color: '#888',
+                        borderColor: '#555',
+                        opacity: 0.7,
+                        cursor: 'not-allowed',
+                        boxShadow: 'none',
+                        fontWeight: 400
+                      }
+                    : {
+                        background: 'var(--sidebar-btn-bg, #23232a)',
+                        color: 'var(--sidebar-btn-fg, #b0b0b8)',
+                        borderColor: 'var(--sidebar-btn-bg, #23232a)',
+                        opacity: 1,
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                        fontWeight: 400
+                      }
+                  }
                 >
                   <FiZap size={18} />
                   <span>{t('deepThink')}</span>
@@ -1398,6 +1770,26 @@ export default function ChatInterface() {
                   onClick={handleToggleWebSearch}
                   disabled={!currentChat}
                   title={t('webSearchTooltip')}
+                  style={!currentChat
+                    ? {
+                        background: '#444',
+                        color: '#888',
+                        borderColor: '#555',
+                        opacity: 0.7,
+                        cursor: 'not-allowed',
+                        boxShadow: 'none',
+                        fontWeight: 400
+                      }
+                    : {
+                        background: 'var(--sidebar-btn-bg, #23232a)',
+                        color: 'var(--sidebar-btn-fg, #b0b0b8)',
+                        borderColor: 'var(--sidebar-btn-bg, #23232a)',
+                        opacity: 1,
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                        fontWeight: 400
+                      }
+                  }
                 >
                   <FiSearch size={18} />
                   <span>{t('webSearch')}</span>
@@ -1463,7 +1855,6 @@ export default function ChatInterface() {
           onClose={() => setShowUploadDropdown(false)}
           onFileUpload={handleFileUpload}
           onImageUpload={handleImageUpload}
-          onYouTubeUpload={handleYouTubeUpload}
           onUrlExtract={async (url: string) => {
             setFileLoading(true);
             try {
@@ -1481,7 +1872,7 @@ export default function ChatInterface() {
                 throw new Error(errorText || 'Ошибка извлечения текста');
               }
               if (contentType && contentType.includes('application/json')) {
-              const data = await response.json();
+                const data = await response.json();
                 // Вместо handleLargeText — создаём виртуальный файл
                 const siteFile = new File([data.text], "site.txt", { type: "text/plain" });
                 setUploadedFile(siteFile);
@@ -1495,6 +1886,8 @@ export default function ChatInterface() {
               setFileLoading(false);
             }
           }}
+          onTranslateBook={handleTranslateBook}
+          onYouTubeUpload={() => {}}
         />
 
         {/* Share Modal */}
@@ -1512,11 +1905,9 @@ export default function ChatInterface() {
 // Простой Typewriter-компонент
 function Typewriter({ text }: { text: string }) {
   const [displayed, setDisplayed] = useState('');
-  
   useEffect(() => {
     setDisplayed('');
     if (!text) return;
-    
     let i = 0;
     const interval = setInterval(() => {
       setDisplayed((prev) => prev + text[i]);
@@ -1525,9 +1916,7 @@ function Typewriter({ text }: { text: string }) {
         clearInterval(interval);
       }
     }, 12);
-    
     return () => clearInterval(interval);
   }, [text]);
-  
   return <span>{displayed}</span>;
 } 
