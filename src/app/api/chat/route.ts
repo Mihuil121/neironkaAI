@@ -454,7 +454,12 @@ async function researchPlanItem(item: string, request: NextRequest, modelId: str
 
   return {
     item,
-    summary: summaries.length > 0 ? summaries.join(' ') : 'Информация не найдена.'
+    summary: summaries.length > 0 ? summaries.join(' ') : 'Информация не найдена.',
+    sources: links.map((link: any) => ({
+      title: link.title,
+      url: link.url,
+      favicon: link.favicon
+    }))
   };
 }
 
@@ -630,11 +635,17 @@ export async function POST(request: NextRequest) {
         }
         
         console.log('[AI] Структурированный веб-поиск завершен успешно');
+        // Собираем все реальные источники из результатов исследования
+        const allSources = researchResults
+          .filter(result => result.sources && Array.isArray(result.sources))
+          .flatMap(result => result.sources)
+          .slice(0, 6); // Ограничиваем до 6 источников для UI
+
         return NextResponse.json({
           reasoning,
           answer: finalReport,
           role: 'assistant',
-          searchSources: researchResults.map(result => ({ 
+          searchSources: allSources.length > 0 ? allSources : researchResults.map(result => ({ 
             title: result.item, 
             url: 'research-item' 
           }))
