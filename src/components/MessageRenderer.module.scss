@@ -102,6 +102,16 @@
   }
 
   // Таблицы
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #374151;
+    background: #1f2937;
+  }
+
   .table {
     width: 100%;
     border-collapse: collapse;
@@ -109,14 +119,31 @@
     border-radius: 8px;
     overflow: hidden;
     border: 1px solid #374151;
+    background: #1f2937;
+  }
+
+  thead {
+    background: #374151;
   }
 
   .thead {
     background: #374151;
   }
 
+  tbody {
+    background: #1f2937;
+  }
+
   .tbody {
     background: #1f2937;
+  }
+
+  tr {
+    border-bottom: 1px solid #374151;
+
+    &:last-child {
+      border-bottom: none;
+    }
   }
 
   .tr {
@@ -127,17 +154,46 @@
     }
   }
 
+  th {
+    padding: 0.75rem;
+    text-align: left;
+    font-weight: 600;
+    color: #fff;
+    background: #374151;
+    border-right: 1px solid #4b5563;
+
+    &:last-child {
+      border-right: none;
+    }
+  }
+
   .th {
     padding: 0.75rem;
     text-align: left;
     font-weight: 600;
     color: #fff;
     background: #374151;
+    border-right: 1px solid #4b5563;
+
+    &:last-child {
+      border-right: none;
+    }
+  }
+
+  td {
+    padding: 0.75rem;
+    border-right: 1px solid #374151;
+    color: #e5e7eb;
+
+    &:last-child {
+      border-right: none;
+    }
   }
 
   .td {
     padding: 0.75rem;
     border-right: 1px solid #374151;
+    color: #e5e7eb;
 
     &:last-child {
       border-right: none;
@@ -342,7 +398,16 @@
     border: 1px solid #f3d9b6;
     color: #18181a;
   }
+  table {
+    background: #fff;
+    border: 1px solid #f3d9b6;
+    color: #18181a;
+  }
   .thead {
+    background: #ffe7c2;
+    color: #18181a;
+  }
+  thead {
     background: #ffe7c2;
     color: #18181a;
   }
@@ -350,12 +415,25 @@
     background: #fff;
     color: #18181a;
   }
+  tbody {
+    background: #fff;
+    color: #18181a;
+  }
   .tr { border-bottom: 1px solid #f3d9b6; }
+  tr { border-bottom: 1px solid #f3d9b6; }
   .th {
     color: #18181a;
     background: #ffe7c2;
   }
+  th {
+    color: #18181a;
+    background: #ffe7c2;
+  }
   .td {
+    color: #18181a;
+    border-right: 1px solid #f3d9b6;
+  }
+  td {
     color: #18181a;
     border-right: 1px solid #f3d9b6;
   }

@@ -94,7 +94,7 @@ function ProgressStage({ isThinking, chunkProgress, isLoading, reasoningEnabled,
     }
     
     if (chunkProgress.current && chunkProgress.total) {
-      stageText += ` (${chunkProgress.current} из ${chunkProgress.total})`;
+    stageText += ` (${chunkProgress.current} из ${chunkProgress.total})`;
     }
   } else if (isLoading) {
     if (reasoningEnabled && webSearchEnabled) {
@@ -105,7 +105,7 @@ function ProgressStage({ isThinking, chunkProgress, isLoading, reasoningEnabled,
       stageText = t('status_searching');
     } else {
       stageText = t('status_idle');
-    }
+  }
   }
   
   return (
@@ -878,17 +878,17 @@ export default function ChatInterface() {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 секунд таймаут
 
-            const resp = await fetch('/api/translate-book', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+        const resp = await fetch('/api/translate-book', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ text: chunk, language }),
               signal: controller.signal
-            });
+        });
 
             clearTimeout(timeoutId);
 
             if (!resp.ok) {
-              const data = await resp.json();
+        const data = await resp.json();
               throw new Error(data.error || `HTTP ${resp.status}`);
             }
 
@@ -918,7 +918,7 @@ export default function ChatInterface() {
       const processChunk = async (chunk: string, index: number) => {
         while (semaphore.count >= maxConcurrentRequests) {
           await new Promise(resolve => setTimeout(resolve, 100));
-        }
+      }
         
         semaphore.count++;
         try {
