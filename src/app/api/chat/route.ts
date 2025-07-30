@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { franc } from 'franc';
 // @ts-ignore
@@ -52,7 +52,7 @@ async function askLMStudio(messages: any[], temperature: number = 0.7, maxTokens
     
     // Создаем AbortController для таймаута
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 секунд таймаут
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // Уменьшил с 120 до 60 секунд
     
     const response = await fetch(LMSTUDIO_API_URL, {
       method: 'POST',
@@ -81,6 +81,7 @@ async function askLMStudio(messages: any[], temperature: number = 0.7, maxTokens
   } catch (error: any) {
     console.error('Ошибка LM Studio API:', error);
     if (error.name === 'AbortError') {
+      console.error('LM Studio запрос прерван по таймауту');
       return '__LMSTUDIO_CONNECTION_ERROR__';
     }
     return '__LMSTUDIO_CONNECTION_ERROR__';
@@ -483,23 +484,42 @@ ${researchResults.map((result, index) => `${index + 1}. ${result.item}\n   Ре�
 
 Отчет должен быть информативным и полезным для пользователя.`;
 
-  if (modelId === 'neironka') {
-    return await askLMStudio([
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: reportPrompt }
-    ], 0.7, 1500);
-  } else {
-    const openai = getOpenAI(apiKey);
-    const completion = await openai.chat.completions.create({
-      model: MODEL_MAP[modelId] || 'gpt-3.5-turbo',
-      messages: [
+  try {
+    if (modelId === 'neironka') {
+      const result = await askLMStudio([
         { role: 'system', content: systemPrompt },
         { role: 'user', content: reportPrompt }
-      ],
-      max_tokens: 1500,
-      temperature: 0.7,
-    });
-    return completion.choices[0].message.content || '';
+      ], 0.7, 1000); // Уменьшил с 1500 до 1000 токенов
+      
+      if (result === '__LMSTUDIO_CONNECTION_ERROR__') {
+        throw new Error('Ошибка соединения с LM Studio');
+      }
+      
+      return result;
+    } else {
+      const openai = getOpenAI(apiKey);
+      const completion = await openai.chat.completions.create({
+        model: MODEL_MAP[modelId] || 'gpt-3.5-turbo',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: reportPrompt }
+        ],
+        max_tokens: 1000, // Уменьшил с 1500 до 1000 токенов
+        temperature: 0.7,
+      });
+      return completion.choices[0].message.content || '';
+    }
+  } catch (error) {
+    console.error('[AI] Ошибка при создании финального отчета:', error);
+    
+    // Если не удалось создать отчет, возвращаем базовую информацию
+    const basicReport = `На основе проведенного исследования по запросу "${userQuery}":
+
+${researchResults.map((result, index) => `${index + 1}. ${result.item}\n   ${result.summary}`).join('\n\n')}
+
+Примечание: Не удалось создать подробный отчет из-за технических проблем. Выше представлена базовая информация по результатам поиска.`;
+    
+    return basicReport;
   }
 }
 
@@ -600,7 +620,18 @@ export async function POST(request: NextRequest) {
         const finalReport = await createFinalReport(message, researchResults, modelId, systemPrompt, detectedLangName, apiKey);
         
         if (!finalReport || finalReport.includes('__LMSTUDIO_CONNECTION_ERROR__')) {
-          return NextResponse.json({ error: 'Не удалось создать финальный отчет. Попробуйте позже.' }, { status: 503 });
+          // Fallback: если LM Studio недоступен, пробуем OpenAI
+          if (modelId === 'neironka' && apiKey) {
+            console.log('[AI] LM Studio недоступен, пробуем OpenAI...');
+            const fallbackReport = await createFinalReport(message, researchResults, 'cypher', systemPrompt, detectedLangName, apiKey);
+            if (fallbackReport && !fallbackReport.includes('__LMSTUDIO_CONNECTION_ERROR__')) {
+              console.log('[AI] Успешно создан отчет через OpenAI');
+            } else {
+              return NextResponse.json({ error: 'Не удалось создать финальный отчет. Попробуйте позже.' }, { status: 503 });
+            }
+          } else {
+            return NextResponse.json({ error: 'Не удалось создать финальный отчет. Попробуйте позже.' }, { status: 503 });
+          }
         }
         
         // 5. Если включен reasoning, создаем reasoning на основе отчета
@@ -616,7 +647,25 @@ export async function POST(request: NextRequest) {
               { role: 'user', content: reasoningPrompt }
             ], 0.7, 800);
             if (reasoning === '__LMSTUDIO_CONNECTION_ERROR__') {
-              return NextResponse.json({ error: 'У вас нестабильное соединение с моделью. Попробуйте позже.' }, { status: 503 });
+              // Fallback: если LM Studio недоступен, пробуем OpenAI
+              if (apiKey) {
+                console.log('[AI] LM Studio недоступен для reasoning, пробуем OpenAI...');
+                const openai = getOpenAI(apiKey);
+                const completion = await openai.chat.completions.create({
+                  model: 'openrouter/cypher-alpha:free',
+                  messages: [
+                    { role: 'system', content: systemPrompt },
+                    ...conversationHistory,
+                    { role: 'user', content: reasoningPrompt }
+                  ],
+                  max_tokens: 800,
+                  temperature: 0.7,
+                });
+                reasoning = completion.choices[0].message.content || '';
+                console.log('[AI] Успешно создан reasoning через OpenAI');
+              } else {
+                return NextResponse.json({ error: 'У вас нестабильное соединение с моделью. Попробуйте позже.' }, { status: 503 });
+              }
             }
           } else {
             const openai = getOpenAI(apiKey);
@@ -811,11 +860,11 @@ export async function POST(request: NextRequest) {
       // Если включено reasoning, сначала получаем reasoning
       let contextBlock = '';
       if (webSearchEnabled && (webSearchSummary || webSearchSnippets)) {
-        contextBlock = `\n\nВот результаты веб-поиска по вашему запросу:\n${webSearchSummary}\n\n${webSearchSnippets}`;
+        contextBlock = `\n\nИсходный запрос пользователя: ${message}\n\nВот результаты веб-поиска по этому запросу:\n${webSearchSummary}\n\n${webSearchSnippets}`;
       }
       let reasoning = '';
       let reasoningError = null;
-      let reasoningPrompt = `Проведи внутренний анализ для запроса: ${message}` + (contextBlock ? `\nКонтекст:\n${contextBlock}` : '');
+      let reasoningPrompt = `Проведи внутренний анализ для запроса пользователя: "${message}"` + (contextBlock ? `\n\nКонтекст для анализа:\n${contextBlock}\n\nПроанализируй исходный запрос пользователя в контексте найденной информации.` : '');
       // Ограничение длины reasoning-промпта
       if (reasoningPrompt.length > 8000) {
         try {
@@ -950,7 +999,7 @@ export async function POST(request: NextRequest) {
       // Теперь reasoning отправляется как новый user prompt
       let answerContextBlock = '';
       if (webSearchEnabled && (webSearchSummary || webSearchSnippets)) {
-        answerContextBlock = `\n\nВот результаты веб-поиска по вашему запросу:\n${webSearchSummary}\n\n${webSearchSnippets}`;
+        answerContextBlock = `\n\nИсходный запрос пользователя: ${message}\n\nВот результаты веб-поиска по этому запросу:\n${webSearchSummary}\n\n${webSearchSnippets}`;
       }
       let reasoningText = '';
       if (reasoningEnabled) {

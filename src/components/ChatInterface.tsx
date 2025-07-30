@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useChatStore, Chat, Message } from '@/store/useChatStore';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -10,8 +10,8 @@ import UploadDropdown from './UploadDropdown';
 import SettingsModal from './SettingsModal';
 import ShareModal from './ShareModal';
 import styles from './ChatInterface.module.scss';
-import { FiPlus, FiTrash2, FiLogOut, FiMessageSquare, FiUser, FiSend, FiUpload, FiSettings, FiX, FiZap, FiSearch, FiChevronDown, FiChevronUp, FiChevronLeft, FiChevronRight, FiShare2, FiMenu, FiCopy, FiRefreshCw, FiEdit2, FiGlobe, FiDownload, FiBookOpen } from 'react-icons/fi';
-import { FaRobot } from 'react-icons/fa';
+import { FiPlus, FiTrash2, FiLogOut, FiMessageSquare, FiUser, FiSend, FiSettings, FiX, FiZap, FiSearch, FiChevronDown, FiChevronUp, FiChevronLeft, FiChevronRight, FiShare2, FiMenu, FiCopy, FiRefreshCw, FiEdit2, FiGlobe, FiDownload, FiBookOpen } from 'react-icons/fi';
+import { HiStop, HiPlus } from "react-icons/hi2";
 import Tesseract from 'tesseract.js';
 import { supabase } from '@/lib/supabaseClient';
 import Image from 'next/image';
@@ -263,6 +263,12 @@ function OnlineBookReader({ text, onClose }: OnlineBookReaderProps) {
   const { t } = useTranslation();
   const { theme } = useTheme();
   const isLight = theme === 'light';
+  
+  // Проверяем, что текст не пустой
+  if (!text || text.trim().length === 0) {
+    return null;
+  }
+  
   const paragraphs = text.split('\n').filter((p: string) => p.trim().length > 0);
   const PARAGRAPHS_PER_PAGE = 15;
   const [page, setPage] = useState(0);
@@ -272,41 +278,159 @@ function OnlineBookReader({ text, onClose }: OnlineBookReaderProps) {
     (page + 1) * PARAGRAPHS_PER_PAGE
   );
   const contentRef = useRef<HTMLDivElement>(null);
+  
   useEffect(() => {
     if (contentRef.current) {
       contentRef.current.scrollTop = 0;
     }
   }, [page]);
-  return (
-    <div style={{
-      position: 'fixed',
+
+  // Стили для светлой и тёмной темы
+  const containerStyle = {
+    position: 'fixed' as const,
       top: '10%',
       left: '50%',
       transform: 'translateX(-50%)',
-      background: isLight ? '#fff' : '#18181a',
-      color: isLight ? '#23232a' : '#fff',
+    background: isLight ? '#ffffff' : '#1a1a1a',
+    color: isLight ? '#23232a' : '#ffffff',
       borderRadius: 18,
-      boxShadow: isLight ? '0 8px 48px rgba(40, 80, 180, 0.10)' : '0 8px 48px rgba(40, 80, 180, 0.10)',
+    boxShadow: isLight 
+      ? '0 8px 48px rgba(0, 0, 0, 0.15)' 
+      : '0 8px 48px rgba(0, 0, 0, 0.4)',
       maxWidth: 600,
       width: '90vw',
       maxHeight: '80vh',
       zIndex: 1000,
       display: 'flex',
-      flexDirection: 'column',
-    }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 24px 8px 24px', fontSize: '1.2rem', fontWeight: 700 }}>
+    flexDirection: 'column' as const,
+    border: isLight ? '1px solid #e5e7eb' : '1px solid #333333',
+  };
+
+  const headerStyle = {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '18px 24px 8px 24px',
+    fontSize: '1.2rem',
+    fontWeight: 700,
+    color: isLight ? '#23232a' : '#ffffff',
+    borderBottom: isLight ? '1px solid #e5e7eb' : '1px solid #333333',
+  };
+
+  const contentStyle = {
+    padding: '0 24px 0 24px',
+    overflowY: 'auto' as const,
+    flex: 1,
+    background: isLight ? '#ffffff' : '#1a1a1a',
+  };
+
+  const paragraphStyle = {
+    marginBottom: 16,
+    lineHeight: 1.6,
+    color: isLight ? '#23232a' : '#ffffff',
+    fontSize: '1rem',
+  };
+
+  const footerStyle = {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '12px 24px 18px 24px',
+    background: isLight ? '#f8f9fa' : '#23232a',
+    borderRadius: '0 0 18px 18px',
+    borderTop: isLight ? '1px solid #e5e7eb' : '1px solid #333333',
+  };
+
+  const buttonStyle = (disabled: boolean) => ({
+    padding: '8px 20px',
+    borderRadius: 8,
+    background: disabled ? (isLight ? '#e5e7eb' : '#444444') : '#f59e42',
+    color: disabled ? (isLight ? '#9ca3af' : '#666666') : '#ffffff',
+    border: 'none',
+    fontWeight: 600,
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    opacity: disabled ? 0.5 : 1,
+    transition: 'all 0.2s ease',
+    fontSize: '0.9rem',
+  });
+
+  const pageInfoStyle = {
+    color: isLight ? '#6b7280' : '#9ca3af',
+    fontSize: '0.9rem',
+    fontWeight: 500,
+  };
+
+  const closeButtonStyle = {
+    background: 'none',
+    border: 'none',
+    color: '#f59e42',
+    fontSize: '1.5rem',
+    cursor: 'pointer',
+    padding: '4px',
+    borderRadius: '4px',
+    transition: 'background-color 0.2s ease',
+  };
+
+  return (
+    <div style={containerStyle}>
+      <div style={headerStyle}>
         <span>{t('onlineBookTitle')}</span>
-        <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#f59e42', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
+        <button 
+          onClick={onClose} 
+          style={closeButtonStyle}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = isLight ? '#f3f4f6' : '#333333';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'transparent';
+          }}
+        >
+          ×
+        </button>
       </div>
-      <div ref={contentRef} style={{ padding: '0 24px 0 24px', overflowY: 'auto', flex: 1 }}>
+      
+      <div ref={contentRef} style={contentStyle}>
         {currentParagraphs.map((p: string, idx: number) => (
-          <p key={idx} style={{ marginBottom: 16 }}>{p}</p>
+          <p key={idx} style={paragraphStyle}>{p}</p>
         ))}
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 24px 18px 24px', background: isLight ? '#f7f8fa' : '#23232a', borderRadius: '0 0 18px 18px' }}>
-        <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0} style={{ padding: '6px 18px', borderRadius: 8, background: '#f59e42', color: '#23232a', border: 'none', fontWeight: 600, cursor: page === 0 ? 'not-allowed' : 'pointer', opacity: page === 0 ? 0.5 : 1 }}>{t('onlineBookPrev')}</button>
-        <span>{t('onlineBookPage')} {page + 1} {t('onlineBookOf')} {totalPages}</span>
-        <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page === totalPages - 1} style={{ padding: '6px 18px', borderRadius: 8, background: '#f59e42', color: '#23232a', border: 'none', fontWeight: 600, cursor: page === totalPages - 1 ? 'not-allowed' : 'pointer', opacity: page === totalPages - 1 ? 0.5 : 1 }}>{t('onlineBookNext')}</button>
+      
+      <div style={footerStyle}>
+        <button 
+          onClick={() => setPage(p => Math.max(0, p - 1))} 
+          disabled={page === 0} 
+          style={buttonStyle(page === 0)}
+          onMouseEnter={(e) => {
+            if (page !== 0) {
+              e.currentTarget.style.transform = 'scale(1.05)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'scale(1)';
+          }}
+        >
+          {t('onlineBookPrev')}
+        </button>
+        
+        <span style={pageInfoStyle}>
+          {t('onlineBookPage')} {page + 1} {t('onlineBookOf')} {totalPages}
+        </span>
+        
+        <button 
+          onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} 
+          disabled={page === totalPages - 1} 
+          style={buttonStyle(page === totalPages - 1)}
+          onMouseEnter={(e) => {
+            if (page !== totalPages - 1) {
+              e.currentTarget.style.transform = 'scale(1.05)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'scale(1)';
+          }}
+        >
+          {t('onlineBookNext')}
+        </button>
       </div>
     </div>
   );
@@ -321,12 +445,69 @@ export default function ChatInterface() {
   const [showSettings, setShowSettings] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showUploadDropdown, setShowUploadDropdown] = useState(false);
-  const [isThinking, setIsThinking] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const clearError = () => setError(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  // Throttle функция для ограничения частоты вызовов
+  const throttle = useCallback((func: Function, delay: number) => {
+    let timeoutId: NodeJS.Timeout;
+    let lastExecTime = 0;
+    return (...args: any[]) => {
+      const currentTime = Date.now();
+      if (currentTime - lastExecTime > delay) {
+        func(...args);
+        lastExecTime = currentTime;
+      } else {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          func(...args);
+          lastExecTime = Date.now();
+        }, delay - (currentTime - lastExecTime));
+      }
+    };
+  }, []);
+
+  // Функция для проверки, находится ли пользователь в конце сообщений
+  const checkScrollPosition = useCallback(() => {
+    if (!messagesContainerRef.current) {
+      return;
+    }
+    
+    const container = messagesContainerRef.current;
+    const scrollTop = container.scrollTop;
+    const clientHeight = container.clientHeight;
+    const scrollHeight = container.scrollHeight;
+    
+    // Если контент не помещается в контейнер, скрываем кнопку
+    if (scrollHeight <= clientHeight) {
+      setShowScrollButton(false);
+      return;
+    }
+    
+    // Более точная проверка с меньшим допуском
+    const isAtBottom = scrollTop + clientHeight >= scrollHeight - 10; // 10px tolerance
+    
+    setShowScrollButton(!isAtBottom);
+  }, []);
+
+  // Throttled версия функции проверки скролла
+  const throttledCheckScroll = useCallback(
+    throttle(checkScrollPosition, 100), // Проверяем не чаще чем раз в 100мс
+    [checkScrollPosition, throttle]
+  );
+
+  // Функция для скролла вниз
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Проверяем позицию после скролла
+    setTimeout(() => {
+      checkScrollPosition();
+    }, 300);
+  }, [checkScrollPosition]);
   const {
     chats,
     currentChatId,
@@ -340,6 +521,10 @@ export default function ChatInterface() {
     toggleWebSearch,
     chatThemeLight,
     renameChat, // добавили
+    cancelRequest, // добавляем функцию отмены
+    cancelledMessage, // добавляем отмененное сообщение
+    isThinking, // добавляем состояние мышления
+    isWebSearching, // добавляем состояние веб-поиска
   } = useChatStore();
   const { user, logout, setLanguage, apiKey, setApiKey } = useAuthStore();
   const [collapsedReasoning, setCollapsedReasoning] = useState<{ [msgId: string]: boolean }>({});
@@ -355,7 +540,11 @@ export default function ChatInterface() {
   const [mobileBtnActive, setMobileBtnActive] = useState<string | null>(null);
   const [bookTranslationProgress, setBookTranslationProgress] = useState<{current: number, total: number, status: string} | null>(null);
   const [bookFile, setBookFile] = useState<File | null>(null);
-  const [showBook, setShowBook] = useState(false);
+  const [showBook, setShowBook] = useState<string | null>(null); // ID сообщения для показа книги
+  const [showScrollButton, setShowScrollButton] = useState(false); // Показывать ли кнопку скролла
+  const [localIsThinking, setLocalIsThinking] = useState(false);
+
+
 
   const { t, language } = useTranslation();
 
@@ -390,7 +579,63 @@ export default function ChatInterface() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Проверяем позицию после автоматического скролла
+    setTimeout(() => {
+      checkScrollPosition();
+    }, 500);
   }, [currentChat?.messages]);
+
+  // Отслеживаем скролл для показа/скрытия кнопки
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) {
+      return;
+    }
+
+    const handleScroll = () => {
+      throttledCheckScroll();
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [currentChat?.messages, throttledCheckScroll]);
+
+  // Проверяем позицию скролла при изменении сообщений
+  useEffect(() => {
+    setTimeout(() => {
+      checkScrollPosition();
+    }, 100);
+  }, [currentChat?.messages, checkScrollPosition]);
+
+  // Восстанавливаем текст при отмене запроса
+  useEffect(() => {
+    if (cancelledMessage) {
+      setMessage(cancelledMessage);
+      // Очищаем cancelledMessage после восстановления
+      useChatStore.getState().cancelledMessage = null;
+    }
+  }, [cancelledMessage]);
+
+  // Проверяем позицию скролла при изменении размера окна
+  useEffect(() => {
+    const handleResize = () => {
+      setTimeout(() => {
+        checkScrollPosition();
+      }, 100);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [checkScrollPosition]);
+
+  // Сбрасываем состояние книги при смене чата
+  useEffect(() => {
+    setShowBook(null);
+    // Проверяем позицию скролла при смене чата
+    setTimeout(() => {
+      checkScrollPosition();
+    }, 100);
+  }, [currentChatId, checkScrollPosition]);
 
   // Следим за появлением новых результатов поиска только при webSearchEnabled
   useEffect(() => {
@@ -430,7 +675,11 @@ export default function ChatInterface() {
 
   useEffect(() => {
     setIsHydrated(true);
-  }, []);
+    // Проверяем позицию скролла при инициализации
+    setTimeout(() => {
+      checkScrollPosition();
+    }, 200);
+  }, [checkScrollPosition]);
 
   useEffect(() => {
     if (isHydrated && (!currentChatId || chats.length === 0)) {
@@ -439,7 +688,7 @@ export default function ChatInterface() {
     }
   }, [isHydrated, currentChatId, chats.length, createChat, models]);
 
-  const compressText = async (text: string, apiKey: string, language: string) => {
+  const compressText = useCallback(async (text: string, apiKey: string, language: string) => {
     // Новый способ: отправляем на /api/compress, не добавляя в чат
     try {
       const response = await fetch('/api/compress', {
@@ -452,10 +701,10 @@ export default function ChatInterface() {
     } catch {
       return '';
     }
-  };
+  }, [currentChat?.modelId]);
 
-  const handleLargeText = async (text: string) => {
-    setIsThinking(true);
+  const handleLargeText = useCallback(async (text: string) => {
+    setLocalIsThinking(true);
     let chunks = [];
     for (let i = 0; i < text.length; i += CHUNK_SIZE) {
       chunks.push(text.slice(i, i + CHUNK_SIZE));
@@ -493,21 +742,19 @@ export default function ChatInterface() {
     if (result.length > 5000) {
       alert('Не удалось сжать текст до нужного размера. Попробуйте другой текст или файл.');
       setChunkProgress(null);
-      setIsThinking(false);
       return;
     }
     // После сжатия сразу отправляем финальный результат
     try {
       await sendMessage(result, language, apiKey);
     } finally {
-      setIsThinking(false);
       setMessage('');
       setUploadedFile(null);
       setChunkProgress(null);
     }
-  };
+  }, [apiKey, language, sendMessage]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!(message.trim() || uploadedFile) || isLoading) return;
     setMessage('');
@@ -552,7 +799,7 @@ export default function ChatInterface() {
       }
       // 2. Если файл большой — сжать
       if (fileContent.length > CHUNK_SIZE) {
-        setIsThinking(true);
+        
         let compressed = '';
         try {
           let chunks = [];
@@ -591,12 +838,12 @@ export default function ChatInterface() {
           if (result.length > 5000) {
             alert('Не удалось сжать текст до нужного размера. Попробуйте другой текст или файл.');
             setChunkProgress(null);
-            setIsThinking(false);
+            
             return;
           }
           compressed = result;
         } finally {
-          setIsThinking(false);
+          
           setChunkProgress(null);
         }
         fileContent = compressed;
@@ -612,7 +859,7 @@ export default function ChatInterface() {
       } else {
         finalMessage = '[Ошибка: нет данных для отправки]';
       }
-      setIsThinking(true);
+      
       try {
         await sendMessage(finalMessage, language, apiKey, {
           fileName: uploadedFile.name,
@@ -621,7 +868,7 @@ export default function ChatInterface() {
           fileContent: fileContent // добавляем содержимое файла
         });
       } finally {
-        setIsThinking(false);
+        
       }
       setMessage('');
       setUploadedFile(null);
@@ -639,43 +886,43 @@ export default function ChatInterface() {
     }
     // Обычное сообщение
     let finalMessage = message.trim();
-    setIsThinking(true);
+    
     try {
       await sendMessage(finalMessage, language, apiKey);
     } finally {
-      setIsThinking(false);
+      
     }
     setMessage('');
     setUploadedFile(null);
     const textarea = document.querySelector('textarea.' + styles.inputBarInput) as HTMLTextAreaElement | null;
     if (textarea) textarea.style.height = 'auto';
-  };
+  }, [message, uploadedFile, isLoading, currentChatId, createChat, models, t, sendMessage, language, apiKey, handleLargeText]);
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
     }
-  };
+  }, [handleSubmit]);
 
-  const handleCreateChat = () => {
+  const handleCreateChat = useCallback(() => {
     createChat(newChatTitle.trim() || t('newChat'), models[0]?.id || 'neironka');
     setNewChatTitle('');
-  };
+  }, [newChatTitle, createChat, t, models]);
 
-  const handleModelChange = (id: string) => {
+  const handleModelChange = useCallback((id: string) => {
     if (currentChatId) changeModel(currentChatId, id);
-  };
+  }, [currentChatId, changeModel]);
 
-  const handleToggleReasoning = () => {
+  const handleToggleReasoning = useCallback(() => {
     if (currentChatId) toggleReasoning(currentChatId);
-  };
+  }, [currentChatId, toggleReasoning]);
 
-  const handleToggleWebSearch = () => {
+  const handleToggleWebSearch = useCallback(() => {
     if (currentChatId) toggleWebSearch(currentChatId);
-  };
+  }, [currentChatId, toggleWebSearch]);
 
-  const handleFileUpload = async (file: File) => {
+  const handleFileUpload = useCallback(async (file: File) => {
     setFileLoading(true);
     try {
       if (file.type.startsWith('image/') || 
@@ -693,16 +940,16 @@ export default function ChatInterface() {
     } finally {
       setFileLoading(false);
     }
-  };
+  }, []);
 
-  const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileInputChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       await handleFileUpload(file);
     }
-  };
+  }, [handleFileUpload]);
 
-  const handleImageUpload = async (file: File) => {
+  const handleImageUpload = useCallback(async (file: File) => {
     setFileLoading(true);
     
     try {
@@ -716,9 +963,9 @@ export default function ChatInterface() {
     } finally {
       setFileLoading(false);
     }
-  };
+  }, []);
 
-  const handleYouTubeUpload = async (url: string) => {
+  const handleYouTubeUpload = useCallback(async (url: string) => {
     setFileLoading(true);
     
     try {
@@ -757,74 +1004,18 @@ export default function ChatInterface() {
     } finally {
       setFileLoading(false);
     }
-  };
+  }, []);
 
-  const handleRemoveFile = () => {
+  const handleRemoveFile = useCallback(() => {
     setUploadedFile(null);
-  };
+  }, []);
 
-  async function extractTextFromAnyFile(file: File): Promise<string> {
-    if (file.type === 'application/pdf') {
-      return await extractTextFromPDF(file);
-    } else if (file.type.startsWith('text/') || file.type === 'application/json') {
-      return await file.text();
-    } else if (file.name.endsWith('.docx')) {
-      const arrayBuffer = await file.arrayBuffer();
-      const { value } = await mammoth.extractRawText({ arrayBuffer });
-      return value;
-    } else if (file.name.endsWith('.doc')) {
-      return '[Формат .doc поддерживается ограниченно. Сохраните как .docx]';
-    } else if (file.name.endsWith('.epub')) {
-      try {
-        const arrayBuffer = await file.arrayBuffer();
-        const book = await ePub(arrayBuffer);
-        const spineItems = book.spine.get();
-        let text = '';
-        for (const section of Object.values(spineItems)) {
-          const sectionText = await section.load('text');
-          text += sectionText + '\n';
-        }
-        return text;
-      } catch (err) {
-        return '[Ошибка извлечения текста из EPUB: ' + (err instanceof Error ? err.message : String(err)) + ']';
-      }
-    } else if (file.name.endsWith('.fb2')) {
-      try {
-        const text = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = function() {
-            try {
-              const jf = new JsFile({
-                name: file.name,
-                type: file.type,
-                buffer: reader.result as ArrayBuffer,
-              });
-              jf.read().then((result: any) => {
-                // result[0].content содержит массив параграфов
-                resolve(result[0].content.map((p: any) => p.text).join('\n'));
-              }).catch(reject);
-            } catch (e) {
-              reject(e);
-            }
-          };
-          reader.onerror = reject;
-          reader.readAsArrayBuffer(file);
-        });
-        return text;
-      } catch (err) {
-        return '[Ошибка извлечения текста из FB2: ' + (err instanceof Error ? err.message : String(err)) + ']';
-      }
-    } else if (file.type.startsWith('image/')) {
-      const { data: { text } } = await Tesseract.recognize(file, 'eng+rus');
-      return text;
-    } else {
-      return '[Формат не поддерживается]';
-    }
-  }
 
-  const handleTranslateBook = async (file: File, language: string) => {
+
+  const handleTranslateBook = useCallback(async (file: File, language: string) => {
     setFileLoading(true);
     setBookFile(file);
+    setShowBook(null); // Сбрасываем состояние показа книги
     setBookTranslationProgress({ current: 0, total: 0, status: 'start' });
     
     try {
@@ -835,6 +1026,7 @@ export default function ChatInterface() {
         setFileLoading(false);
         setBookTranslationProgress(null);
         setBookFile(null);
+        setShowBook(null); // Сбрасываем состояние показа книги при ошибке размера
         return;
       }
 
@@ -844,6 +1036,7 @@ export default function ChatInterface() {
         setFileLoading(false);
         setBookTranslationProgress(null);
         setBookFile(null);
+        setShowBook(null); // Сбрасываем состояние показа книги при ошибке извлечения
         return;
       }
 
@@ -936,6 +1129,7 @@ export default function ChatInterface() {
 
       setBookTranslationProgress({ current: chunks.length, total: chunks.length, status: 'done' });
       setBookFile(null);
+      setShowBook(null); // Сбрасываем состояние показа книги при успешном завершении
       setTimeout(() => setBookTranslationProgress(null), 3000);
 
       // Собираем итоговый текст
@@ -978,12 +1172,14 @@ export default function ChatInterface() {
       alert('Ошибка при переводе книги: ' + (err instanceof Error ? err.message : err));
       setBookTranslationProgress(null);
       setBookFile(null);
+      setShowBook(null); // Сбрасываем состояние показа книги при ошибке
     } finally {
       setFileLoading(false);
+      setShowBook(null); // Сбрасываем состояние показа книги при завершении
     }
-  };
+  }, []);
 
-  async function extractTextFromPDF(file: File): Promise<string> {
+  const extractTextFromPDF = useCallback(async (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = async function () {
@@ -1006,20 +1202,79 @@ export default function ChatInterface() {
       };
       reader.readAsArrayBuffer(file);
     });
-  }
+  }, []);
 
-  const formatTime = (date: Date) => {
+  const extractTextFromAnyFile = useCallback(async (file: File): Promise<string> => {
+    if (file.type === 'application/pdf') {
+      return await extractTextFromPDF(file);
+    } else if (file.type.startsWith('text/') || file.type === 'application/json') {
+      return await file.text();
+    } else if (file.name.endsWith('.docx')) {
+      const arrayBuffer = await file.arrayBuffer();
+      const { value } = await mammoth.extractRawText({ arrayBuffer });
+      return value;
+    } else if (file.name.endsWith('.doc')) {
+      return '[Формат .doc поддерживается ограниченно. Сохраните как .docx]';
+    } else if (file.name.endsWith('.epub')) {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const book = await ePub(arrayBuffer);
+        const spineItems = book.spine.get();
+        let text = '';
+        for (const section of Object.values(spineItems)) {
+          const sectionText = await section.load('text');
+          text += sectionText + '\n';
+        }
+        return text;
+      } catch (err) {
+        return '[Ошибка извлечения текста из EPUB: ' + (err instanceof Error ? err.message : String(err)) + ']';
+      }
+    } else if (file.name.endsWith('.fb2')) {
+      try {
+        const text = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = function() {
+            try {
+              const jf = new JsFile({
+                name: file.name,
+                type: file.type,
+                buffer: reader.result as ArrayBuffer,
+              });
+              jf.read().then((result: any) => {
+                // result[0].content содержит массив параграфов
+                resolve(result[0].content.map((p: any) => p.text).join('\n'));
+              }).catch(reject);
+            } catch (e) {
+              reject(e);
+            }
+          };
+          reader.onerror = reject;
+          reader.readAsArrayBuffer(file);
+        });
+        return text;
+      } catch (err) {
+        return '[Ошибка извлечения текста из FB2: ' + (err instanceof Error ? err.message : String(err)) + ']';
+      }
+    } else if (file.type.startsWith('image/')) {
+      const { data: { text } } = await Tesseract.recognize(file, 'eng+rus');
+      return text;
+    } else {
+      return '[Формат не поддерживается]';
+    }
+  }, [extractTextFromPDF]);
+
+  const formatTime = useCallback((date: Date) => {
     return new Intl.DateTimeFormat('ru-RU', {
       hour: '2-digit',
       minute: '2-digit',
     }).format(new Date(date));
-  };
+  }, []);
 
-  const handleLanguageChange = (newLanguage: string) => {
+  const handleLanguageChange = useCallback((newLanguage: string) => {
     setLanguage(newLanguage);
-  };
+  }, [setLanguage]);
 
-  const handleRegenerate = async (msg: Message) => {
+  const handleRegenerate = useCallback(async (msg: Message) => {
     if (isLoading || isThinking || !currentChat) return;
     // Найти последнее сообщение пользователя перед этим AI-ответом
     const idx = currentChat.messages.findIndex(m => m.id === msg.id);
@@ -1033,36 +1288,36 @@ export default function ChatInterface() {
       }
     }
     if (!userMsg || !userMsg.content) return;
-    setIsThinking(true);
+    
     try {
       await sendMessage(userMsg.content, language, apiKey);
     } finally {
-      setIsThinking(false);
+      
     }
-  };
+  }, [isLoading, isThinking, currentChat, sendMessage, language, apiKey]);
 
-  function shortenFileName(name?: string) {
+  const shortenFileName = useCallback((name?: string) => {
     if (!name) return '';
     const dotIdx = name.lastIndexOf('.');
     const ext = dotIdx !== -1 ? name.slice(dotIdx) : '';
     const base = dotIdx !== -1 ? name.slice(0, dotIdx) : name;
     if (base.length <= 6) return name;
     return base.slice(0, 2) + '...' + ext;
-  }
+  }, []);
 
-  function renderFileChip() {
+  const renderFileChip = useMemo(() => {
     return Boolean(uploadedFile) && !bookFile ? (
       <span className={styles.fileChipWrapper}>
         <span className={styles.fileChip}>
-          <FiUpload className={styles.fileChipIcon} />
+          <HiPlus className={styles.fileChipIcon} />
           <span className={styles.fileName}>{uploadedFile?.name}</span>
           <button type="button" className={styles.fileChipRemove} onClick={handleRemoveFile} title={t('fileRemove')}>
-            <FiX />
+            <HiStop />
           </button>
         </span>
       </span>
     ) : null;
-  }
+  }, [uploadedFile, bookFile, handleRemoveFile, t]);
 
   if (!isHydrated) {
     return null; // или можно показать лоадер
@@ -1314,7 +1569,11 @@ export default function ChatInterface() {
               )}
             </div>
           )}
-          <div className={styles.messagesContainer} style={isMobile ? { paddingBottom: 130 } : {}}>
+          <div 
+            ref={messagesContainerRef}
+            className={styles.messagesContainer} 
+            style={isMobile ? { paddingBottom: 130 } : {}}
+          >
             {!currentChat || currentChat.messages.length === 0 ? (
               <div className={styles.welcomeMessage}>
                 <div className={styles.welcomeIcon}><AnimatedBotBall size={64} /></div>
@@ -1350,7 +1609,7 @@ export default function ChatInterface() {
                             {collapsedReasoning[msg.id] ? t('reasoningCollapsed') : t('reasoning')}
                           </span>
                           <button className={styles.collapseBtn} onClick={() => setCollapsedReasoning(prev => ({ ...prev, [msg.id]: !prev[msg.id] }))} title={collapsedReasoning[msg.id] ? t('expandReasoning') : t('collapseReasoning')}>
-                            {collapsedReasoning[msg.id] ? <FiPlus /> : <FiX />}
+                            {collapsedReasoning[msg.id] ? <FiPlus /> : <HiStop />}
                           </button>
                         </div>
                         {/* Reasoning (мышление) — только если не свернуто */}
@@ -1422,7 +1681,7 @@ export default function ChatInterface() {
                         <div className={styles.messageText}>
                           {msg.role === 'user' && (msg.fileName || msg.fileSize || msg.fileType) && (
                             <div className={styles.fileMessage}>
-                              <FiUpload className={styles.fileMessageIcon} />
+                              <HiPlus className={styles.fileMessageIcon} />
                               <span className={styles.fileName}>{shortenFileName(msg.fileName)}</span>
                               {msg.fileType && <span className={styles.fileType}>{msg.fileType}</span>}
                               {msg.fileSize && <span className={styles.fileSize}>{(msg.fileSize / 1024).toFixed(2)} KB</span>}
@@ -1454,7 +1713,7 @@ export default function ChatInterface() {
                                   {t('download')}
                                 </a>
                                 <button
-                                  onClick={() => setShowBook(true)}
+                                  onClick={() => setShowBook(msg.id)}
                                   style={{
                                     display: 'inline-flex',
                                     alignItems: 'center',
@@ -1479,8 +1738,8 @@ export default function ChatInterface() {
                               <div style={{ color: '#f59e42', fontWeight: 500, marginTop: 4, fontSize: '1.01rem' }}>
                                 {t('translatedFileNote')}
                               </div>
-                              {showBook && (
-                                <OnlineBookReader text={msg.fileContent || ''} onClose={() => setShowBook(false)} />
+                              {showBook === msg.id && msg.fileContent && (
+                                <OnlineBookReader text={msg.fileContent} onClose={() => setShowBook(null)} />
                               )}
                             </div>
                           ) : (
@@ -1558,11 +1817,11 @@ export default function ChatInterface() {
                               // Удалить это AI-сообщение
                               const chatId = currentChat.id;
                               useChatStore.getState().deleteMessage(chatId, msg.id);
-                              setIsThinking(true);
+                              
                               try {
                                 await sendMessage(userMsg.content, language, apiKey);
                               } finally {
-                                setIsThinking(false);
+                                
                               }
                             }} title="Перегенерировать ответ"><FiRefreshCw /></button>
                           </div>
@@ -1595,6 +1854,53 @@ export default function ChatInterface() {
 
             <div ref={messagesEndRef} />
           </div>
+
+          {/* Кнопка скролла вниз */}
+                    <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ 
+              opacity: showScrollButton ? 1 : 0, 
+              scale: showScrollButton ? 1 : 0.8 
+            }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            style={{
+              position: 'fixed',
+              bottom: isMobile ? 140 : 120,
+              right: 20,
+              zIndex: 1000,
+              pointerEvents: showScrollButton ? 'auto' : 'none',
+            }}
+          >
+              <button
+                onClick={scrollToBottom}
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: '50%',
+                  background: chatThemeLight ? '#f59e42' : '#f59e42',
+                  color: '#fff',
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 4px 16px rgba(245,158,66,0.3)',
+                  transition: 'all 0.2s ease',
+                  fontSize: '1.2rem',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'scale(1.1)';
+                  e.currentTarget.style.boxShadow = '0 6px 20px rgba(245,158,66,0.4)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                  e.currentTarget.style.boxShadow = '0 4px 16px rgba(245,158,66,0.3)';
+                }}
+                title="Прокрутить вниз"
+              >
+                <FiChevronDown size={24} />
+              </button>
+            </motion.div>
 
           {error && (
             <div className={styles.errorMessage}>
@@ -1656,7 +1962,7 @@ export default function ChatInterface() {
           )}
           {isMobile && (
             <form onSubmit={handleSubmit} className={styles.chatInputBar} style={{position: 'fixed', left: 0, right: 0, bottom: 64, zIndex: 101, width: '100vw', margin: 0}}>
-              {renderFileChip()}
+              {renderFileChip}
               <div className={styles.inputRow}>
                 <textarea
                   className={styles.inputBarInput}
@@ -1690,23 +1996,24 @@ export default function ChatInterface() {
                   title={currentChat?.webSearchEnabled ? t('uploadDisabled') : t('uploadFile')}
                   style={{marginLeft: 4, marginRight: 4}}
                 >
-                  <FiUpload size={20} />
+                  <HiPlus size={20} />
                 </button>
-                {/* Send */}
+                {/* Send/Cancel */}
                 <button
                   type="submit"
                   className={styles.sendBtn}
-                  disabled={(!message.trim() && !uploadedFile) || isLoading || isThinking || !currentChatId || !!bookFile}
-                  title={t('send')}
+                  disabled={(!message.trim() && !uploadedFile && !isLoading && !isThinking) || !currentChatId}
+                  title={isLoading || isThinking ? t('cancel') : t('send')}
+                  onClick={isLoading || isThinking ? (e) => { e.preventDefault(); cancelRequest(); } : undefined}
                 >
-                  <FiSend />
+                  {isLoading || isThinking ? <HiStop /> : <FiSend />}
                 </button>
               </div>
             </form>
           )}
           {!isMobile && (
             <form onSubmit={handleSubmit} className={styles.chatInputBar}>
-              {renderFileChip()}
+              {renderFileChip}
               <div className={styles.inputRow}>
                 <textarea
                   className={styles.inputBarInput}
@@ -1740,16 +2047,17 @@ export default function ChatInterface() {
                   title={currentChat?.webSearchEnabled ? t('uploadDisabled') : t('uploadFile')}
                   style={{marginLeft: 4, marginRight: 4}}
                 >
-                  <FiUpload size={20} />
+                  <HiPlus size={20} />
                 </button>
-                {/* Send */}
+                {/* Send/Cancel */}
                 <button
                   type="submit"
                   className={styles.sendBtn}
-                  disabled={(!message.trim() && !uploadedFile) || isLoading || isThinking || !currentChatId}
-                  title={t('send')}
+                  disabled={(!message.trim() && !uploadedFile && !isLoading && !isThinking) || !currentChatId}
+                  title={isLoading || isThinking ? t('cancel') : t('send')}
+                  onClick={isLoading || isThinking ? (e) => { e.preventDefault(); cancelRequest(); } : undefined}
                 >
-                  <FiSend />
+                  {isLoading || isThinking ? <HiStop /> : <FiSend />}
                 </button>
               </div>
             </form>

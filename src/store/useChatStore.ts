@@ -35,10 +35,15 @@ interface ChatState {
   currentChatId: string | null;
   isLoading: boolean;
   error: string | null;
+  abortController: AbortController | null; // Добавляем AbortController
+  cancelledMessage: string | null; // Добавляем состояние для отмененного сообщения
+  isThinking: boolean; // Добавляем состояние для процесса мышления
+  isWebSearching: boolean; // Добавляем состояние для веб-поиска
   createChat: (title: string, modelId?: string) => void;
   selectChat: (chatId: string) => void;
   deleteChat: (chatId: string) => void;
   sendMessage: (message: string, language?: string, apiKey?: string, fileMeta?: { fileName?: string, fileType?: string, fileSize?: number, fileContent?: string }) => Promise<void>;
+  cancelRequest: () => void; // Добавляем функцию отмены
   clearError: () => void;
   toggleReasoning: (chatId: string) => void;
   toggleWebSearch: (chatId: string) => void;
@@ -56,6 +61,10 @@ export const useChatStore = create<ChatState>()(
       currentChatId: null,
       isLoading: false,
       error: null,
+      abortController: null, // Добавляем AbortController
+      cancelledMessage: null,
+      isThinking: false, // Добавляем состояние для процесса мышления
+      isWebSearching: false, // Добавляем состояние для веб-поиска
       chatThemeLight: false,
       toggleChatTheme: () => set((state) => ({ chatThemeLight: !state.chatThemeLight })),
 
@@ -85,6 +94,45 @@ export const useChatStore = create<ChatState>()(
           chats: state.chats.filter((chat) => chat.id !== chatId),
           currentChatId: state.currentChatId === chatId ? (state.chats.length > 1 ? state.chats[0].id : null) : state.currentChatId,
         }));
+      },
+
+      // Добавляем функцию отмены запроса
+      cancelRequest: () => {
+        const state = get();
+        if (state.abortController) {
+          state.abortController.abort();
+          
+          // Удаляем последнее сообщение пользователя и сохраняем его текст
+          const currentChat = state.chats.find((chat) => chat.id === state.currentChatId);
+          if (currentChat && currentChat.messages.length > 0) {
+            const lastMessage = currentChat.messages[currentChat.messages.length - 1];
+            if (lastMessage.role === 'user') {
+              // Удаляем последнее сообщение пользователя
+              set((state) => ({
+                chats: state.chats.map((chat) =>
+                  chat.id === state.currentChatId
+                    ? { ...chat, messages: chat.messages.slice(0, -1) }
+                    : chat
+                ),
+                isLoading: false,
+                isThinking: false, // Останавливаем процесс мышления
+                isWebSearching: false, // Останавливаем веб-поиск
+                abortController: null,
+                cancelledMessage: lastMessage.content, // Сохраняем текст отмененного сообщения
+                error: 'Запрос отменен пользователем'
+              }));
+              return;
+            }
+          }
+          
+          set({ 
+            isLoading: false,
+            isThinking: false, // Останавливаем процесс мышления
+            isWebSearching: false, // Останавливаем веб-поиск
+            abortController: null,
+            error: 'Запрос отменен пользователем'
+          });
+        }
       },
 
       sendMessage: async (message: string, language: string = 'ru', apiKey?: string, fileMeta?: { fileName?: string, fileType?: string, fileSize?: number, fileContent?: string }) => {
@@ -144,8 +192,14 @@ export const useChatStore = create<ChatState>()(
               : chat
           ),
           isLoading: true,
+          isThinking: currentChat.reasoningEnabled, // Устанавливаем состояние мышления
+          isWebSearching: currentChat.webSearchEnabled, // Устанавливаем состояние веб-поиска
           error: null,
         }));
+
+        // Создаем AbortController для возможности отмены
+        const abortController = new AbortController();
+        set({ abortController });
 
         try {
           const conversationHistory = currentChat.messages.map((msg) => ({
@@ -169,6 +223,7 @@ export const useChatStore = create<ChatState>()(
               fileContent: fileMeta?.fileContent,
               fileName: fileMeta?.fileName,
             }),
+            signal: abortController.signal, // Добавляем signal для отмены
           });
 
           const data = await response.json();
@@ -194,12 +249,30 @@ export const useChatStore = create<ChatState>()(
                 : chat
             ),
             isLoading: false,
+            isThinking: false, // Останавливаем процесс мышления
+            isWebSearching: false, // Останавливаем веб-поиск
+            abortController: null, // Очищаем AbortController после успешного завершения
+            cancelledMessage: null, // Очищаем отмененное сообщение при успешной отправке
           }));
         } catch (error) {
+          // Проверяем, была ли отмена запроса
+          if (error instanceof Error && error.name === 'AbortError') {
+            set({
+              error: 'Запрос отменен пользователем',
+              isLoading: false,
+              isThinking: false,
+              isWebSearching: false,
+              abortController: null,
+            });
+          } else {
           set({
             error: error instanceof Error ? error.message : 'Ошибка при обработке запроса',
             isLoading: false,
+            isThinking: false,
+            isWebSearching: false,
+            abortController: null, // Очищаем AbortController при ошибке
           });
+          }
         }
       },
 
