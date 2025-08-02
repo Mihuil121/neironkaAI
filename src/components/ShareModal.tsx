@@ -12,16 +12,54 @@ interface ShareModalProps {
   onClose: () => void;
   chatId: string;
   chatTitle: string;
+  chatMessages?: any[];
 }
 
-export default function ShareModal({ open, onClose, chatId, chatTitle }: ShareModalProps) {
+export default function ShareModal({ open, onClose, chatId, chatTitle, chatMessages = [] }: ShareModalProps) {
   const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [copied, setCopied] = useState(false);
   const { user } = useAuthStore();
   
-  const shareUrl = typeof window !== 'undefined' 
-    ? `${window.location.origin}/chat/${chatId}` 
-    : '';
+  // Создаем ссылку с историей чата
+  const createShareUrl = () => {
+    if (typeof window === 'undefined' || !chatMessages || chatMessages.length === 0) {
+      return `${window.location.origin}/chat/${chatId}`;
+    }
+    
+    try {
+      // Создаем короткий ID для ссылки
+      const shareId = btoa(chatId + Date.now()).replace(/[^a-zA-Z0-9]/g, '').substring(0, 8);
+      
+      // Сохраняем данные чата в localStorage для быстрого доступа
+      const chatData = {
+        title: chatTitle,
+        messages: chatMessages,
+        timestamp: Date.now()
+      };
+      
+      // Сохраняем в localStorage с ключом shareId
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(`chat_share_${shareId}`, JSON.stringify(chatData));
+        
+        // Очищаем старые данные через 24 часа
+        setTimeout(() => {
+          localStorage.removeItem(`chat_share_${shareId}`);
+        }, 24 * 60 * 60 * 1000);
+      }
+      
+      console.log('Создаем короткую ссылку для чата:', shareId);
+      
+      const shareUrl = `${window.location.origin}/chat/import?share=${shareId}`;
+      console.log('Финальная ссылка:', shareUrl);
+      
+      return shareUrl;
+    } catch (error) {
+      console.error('Ошибка при создании ссылки:', error);
+      return `${window.location.origin}/chat/${chatId}`;
+    }
+  };
+  
+  const shareUrl = createShareUrl();
 
   useEffect(() => {
     if (open && shareUrl) {
@@ -83,7 +121,14 @@ export default function ShareModal({ open, onClose, chatId, chatTitle }: ShareMo
     <div className={styles.overlay}>
       <div className={styles.modal}>
         <ShareModalHeader onClose={onClose} />
-        <ShareModalContent />
+        <ShareModalContent 
+          shareUrl={shareUrl}
+          chatTitle={chatTitle}
+          onCopyLink={handleCopyLink}
+          onDownloadQR={handleDownloadQR}
+          onShare={handleShare}
+          copied={copied}
+        />
       </div>
     </div>
   );

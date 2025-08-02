@@ -45,8 +45,13 @@ function checkUserLimit(userId: string): boolean {
 const LMSTUDIO_API_URL = 'https://myai-api.loca.lt/v1/chat/completions';
 
 // Функция для работы с LM Studio API
-async function askLMStudio(messages: any[], temperature: number = 0.7, maxTokens: number = 1000) {
+async function askLMStudio(messages: any[], temperature: number = 0.7, maxTokens: number = 1000, signal?: AbortSignal) {
   try {
+    // Проверяем отмену запроса
+    if (signal?.aborted) {
+      throw new Error('Запрос отменен пользователем');
+    }
+    
     // Ограничиваем историю сообщений для LM Studio (максимум 4 сообщения)
     const limitedMessages = messages.slice(-4);
     
@@ -67,7 +72,7 @@ async function askLMStudio(messages: any[], temperature: number = 0.7, maxTokens
         stream: false,
         stop: ["</s>", "Human:", "Assistant:", "User:", "Bot:"]
       }),
-      signal: controller.signal
+      signal: signal || controller.signal
     });
     
     clearTimeout(timeoutId);
@@ -298,7 +303,7 @@ function isGreetingWithAction(msg: string) {
 }
 
 // Функция для создания структурированного плана исследования
-async function createResearchPlan(userQuery: string, modelId: string, systemPrompt: string, apiKey?: string) {
+async function createResearchPlan(userQuery: string, modelId: string, systemPrompt: string, apiKey?: string, signal?: AbortSignal) {
   const planPrompt = `Создай структурированный план исследования для запроса пользователя. 
 
 План должен содержать 5-7 конкретных исследовательских вопросов, которые помогут полностью раскрыть тему.
@@ -324,7 +329,7 @@ async function createResearchPlan(userQuery: string, modelId: string, systemProm
     const plan = await askLMStudio([
       { role: 'system', content: ADVANCED_WEB_SEARCH_SYSTEM_PROMPT },
       { role: 'user', content: planPrompt }
-    ], 0.7, 800);
+    ], 0.7, 800, signal);
     return plan;
   } else {
     const openai = getOpenAI(apiKey);
@@ -353,8 +358,13 @@ function extractPlanItems(planText: string): string[] {
 }
 
 // Функция для выполнения поиска по одному пункту плана
-async function researchPlanItem(item: string, request: NextRequest, modelId: string, systemPrompt: string, apiKey?: string) {
+async function researchPlanItem(item: string, request: NextRequest, modelId: string, systemPrompt: string, apiKey?: string, signal?: AbortSignal) {
   console.log(`[AI] Исследуем пункт: ${item}`);
+  
+  // Проверяем отмену
+  if (signal?.aborted) {
+    return { item, summary: 'Остановлено пользователем.' };
+  }
   
   // 1. Создаем поисковый запрос для этого пункта
   let searchQuery = item;
@@ -365,7 +375,7 @@ async function researchPlanItem(item: string, request: NextRequest, modelId: str
         searchQuery = await askLMStudio([
           { role: 'system', content: ADVANCED_WEB_SEARCH_SYSTEM_PROMPT },
           { role: 'user', content: queryPrompt }
-        ], 0.5, 50);
+        ], 0.5, 50, signal);
       } else {
         const openai = getOpenAI(apiKey);
         const completion = await openai.chat.completions.create({
@@ -385,10 +395,15 @@ async function researchPlanItem(item: string, request: NextRequest, modelId: str
   }
 
   // 2. Выполняем поиск
+  if (signal?.aborted) {
+    return { item, summary: 'Остановлено пользователем.' };
+  }
+  
   const webSearchRes = await fetch(`${request.nextUrl.origin}/api/web-search`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: searchQuery })
+    body: JSON.stringify({ query: searchQuery }),
+    signal: signal
   });
   
   if (!webSearchRes.ok) {
@@ -401,16 +416,28 @@ async function researchPlanItem(item: string, request: NextRequest, modelId: str
   }
 
   // 3. Извлекаем и анализируем информацию с 2 лучших сайтов
+  if (signal?.aborted) {
+    return { item, summary: 'Остановлено пользователем.' };
+  }
+  
   const links = webSearchData.results.slice(0, 2);
   const summaries: string[] = [];
   
   for (const link of links) {
+    if (signal?.aborted) {
+      return { item, summary: 'Остановлено пользователем.' };
+    }
     try {
       // Извлекаем текст
+      if (signal?.aborted) {
+        return { item, summary: 'Остановлено пользователем.' };
+      }
+      
       const extractRes = await fetch(`${request.nextUrl.origin}/api/url-extract`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: link.url })
+        body: JSON.stringify({ url: link.url }),
+        signal: signal
       });
       
       if (!extractRes.ok) continue;
@@ -430,7 +457,7 @@ async function researchPlanItem(item: string, request: NextRequest, modelId: str
         summary = await askLMStudio([
           { role: 'system', content: systemPrompt },
           { role: 'user', content: analysisPrompt }
-        ], 0.5, 200);
+        ], 0.5, 200, signal);
       } else {
         const openai = getOpenAI(apiKey);
         const completion = await openai.chat.completions.create({
@@ -464,8 +491,30 @@ async function researchPlanItem(item: string, request: NextRequest, modelId: str
   };
 }
 
-// Функция для создания финального отчета
-async function createFinalReport(userQuery: string, researchResults: any[], modelId: string, systemPrompt: string, detectedLangName: string, apiKey?: string) {
+// Функция для сокращения длинного текста
+function truncateReport(text: string, maxLength: number = 3000): string {
+  if (text.length <= maxLength) {
+    return text;
+  }
+  
+  // Находим последний полный абзац перед лимитом
+  const truncated = text.substring(0, maxLength);
+  const lastParagraphEnd = truncated.lastIndexOf('\n\n');
+  
+  if (lastParagraphEnd > maxLength * 0.7) { // Если есть хороший разрыв абзаца
+    return truncated.substring(0, lastParagraphEnd) + '\n\n... (отчет сокращен из-за ограничений длины)';
+  } else {
+    // Ищем последнее предложение
+    const lastSentenceEnd = truncated.lastIndexOf('. ');
+    if (lastSentenceEnd > maxLength * 0.8) {
+      return truncated.substring(0, lastSentenceEnd + 1) + '\n\n... (отчет сокращен из-за ограничений длины)';
+    } else {
+      return truncated + '\n\n... (отчет сокращен из-за ограничений длины)';
+    }
+  }
+}
+
+async function createFinalReport(userQuery: string, researchResults: any[], modelId: string, systemPrompt: string, detectedLangName: string, apiKey?: string, signal?: AbortSignal) {
   const reportPrompt = `Создай подробный и структурированный отчет на основе проведенного исследования.
 
 ВНИМАНИЕ: Всегда формируй итоговый отчёт только на ${detectedLangName} языке, даже если часть информации была найдена на других языках. Переводи все цитаты и выдержки на ${detectedLangName} язык.
@@ -489,7 +538,7 @@ ${researchResults.map((result, index) => `${index + 1}. ${result.item}\n   Ре�
       const result = await askLMStudio([
         { role: 'system', content: systemPrompt },
         { role: 'user', content: reportPrompt }
-      ], 0.7, 1000); // Уменьшил с 1500 до 1000 токенов
+      ], 0.7, 1000, signal); // Уменьшил с 1500 до 1000 токенов
       
       if (result === '__LMSTUDIO_CONNECTION_ERROR__') {
         throw new Error('Ошибка соединения с LM Studio');
@@ -526,6 +575,9 @@ ${researchResults.map((result, index) => `${index + 1}. ${result.item}\n   ${res
 export async function POST(request: NextRequest) {
   try {
     const { message, conversationHistory = [], modelId = 'neironka', reasoningEnabled = false, language = 'ru', webSearchEnabled = false, apiKey, fileContent, fileName } = await request.json();
+    
+    // Получаем signal для отмены запросов
+    const signal = request.signal;
 
     // Получаем IP пользователя для защиты от злоупотреблений
     const userIP = request.headers.get('x-forwarded-for') || 
@@ -588,8 +640,12 @@ export async function POST(request: NextRequest) {
       
       try {
         // 1. Создаем план исследования
+        if (signal.aborted) {
+          return NextResponse.json({ error: 'Запрос отменен пользователем' }, { status: 499 });
+        }
+        
         console.log('[AI] Создаем план исследования...');
-        const researchPlan = await createResearchPlan(message, modelId, systemPrompt, apiKey);
+        const researchPlan = await createResearchPlan(message, modelId, systemPrompt, apiKey, signal);
         if (!researchPlan || researchPlan.includes('__LMSTUDIO_CONNECTION_ERROR__')) {
           return NextResponse.json({ error: 'Не удалось создать план исследования. Попробуйте позже.' }, { status: 503 });
         }
@@ -605,8 +661,12 @@ export async function POST(request: NextRequest) {
         // 3. Исследуем каждый пункт плана
         const researchResults = [];
         for (let i = 0; i < planItems.length; i++) {
+          if (signal.aborted) {
+            return NextResponse.json({ error: 'Запрос отменен пользователем' }, { status: 499 });
+          }
+          
           console.log(`[AI] Исследуем пункт ${i + 1}/${planItems.length}`);
-          const result = await researchPlanItem(planItems[i], request, modelId, systemPrompt, apiKey);
+          const result = await researchPlanItem(planItems[i], request, modelId, systemPrompt, apiKey, signal);
           researchResults.push(result);
           
           // Небольшая пауза между запросами
@@ -616,8 +676,12 @@ export async function POST(request: NextRequest) {
         }
         
         // 4. Создаем финальный отчет
+        if (signal.aborted) {
+          return NextResponse.json({ error: 'Запрос отменен пользователем' }, { status: 499 });
+        }
+        
         console.log('[AI] Создаем финальный отчет...');
-        const finalReport = await createFinalReport(message, researchResults, modelId, systemPrompt, detectedLangName, apiKey);
+        const finalReport = await createFinalReport(message, researchResults, modelId, systemPrompt, detectedLangName, apiKey, signal);
         
         if (!finalReport || finalReport.includes('__LMSTUDIO_CONNECTION_ERROR__')) {
           // Fallback: если LM Studio недоступен, пробуем OpenAI
@@ -635,6 +699,10 @@ export async function POST(request: NextRequest) {
         }
         
         // 5. Если включен reasoning, создаем reasoning на основе отчета
+        if (signal.aborted) {
+          return NextResponse.json({ error: 'Запрос отменен пользователем' }, { status: 499 });
+        }
+        
         let reasoning = null;
         if (reasoningEnabled) {
           console.log('[AI] Создаем reasoning на основе отчета...');
@@ -723,6 +791,11 @@ export async function POST(request: NextRequest) {
     let webSearchSnippets = '';
     
     if (webSearchEnabled) {
+      // Проверяем отмену перед началом веб-поиска
+      if (signal.aborted) {
+        return NextResponse.json({ error: 'Запрос отменен пользователем' }, { status: 499 });
+      }
+      
       try {
         console.log('Получаем ссылки для веб-поиска:', message);
         const searchResponse = await fetch(`${request.nextUrl.origin}/api/web-search`, {
@@ -733,10 +806,16 @@ export async function POST(request: NextRequest) {
           body: JSON.stringify({
             query: message,
             apiKey: apiKey
-          })
+          }),
+          signal: signal
         });
 
         if (searchResponse.ok) {
+          // Проверяем отмену перед обработкой результатов
+          if (signal.aborted) {
+            return NextResponse.json({ error: 'Запрос отменен пользователем' }, { status: 499 });
+          }
+          
           const searchData = await searchResponse.json();
           searchSources = searchData.results?.map((result: any, index: number) => ({
             title: result.title,
@@ -795,7 +874,7 @@ export async function POST(request: NextRequest) {
       ];
       let aiResponse: any;
       if (modelId === 'neironka') {
-        const content = await askLMStudio(messages, 0.7, 100);
+        const content = await askLMStudio(messages, 0.7, 100, signal);
         aiResponse = { content, role: 'assistant' };
       } else {
         const openai = getOpenAI(apiKey);
@@ -835,7 +914,7 @@ export async function POST(request: NextRequest) {
       ];
       let aiResponse: any;
       if (modelId === 'neironka') {
-        const content = await askLMStudio(messages, 0.7, 120);
+        const content = await askLMStudio(messages, 0.7, 120, signal);
         aiResponse = { content, role: 'assistant' };
       } else {
         const openai = getOpenAI(apiKey);
@@ -873,7 +952,7 @@ export async function POST(request: NextRequest) {
             reasoningPrompt = await askLMStudio([
               { role: 'system', content: systemPrompt },
               { role: 'user', content: compressPrompt }
-            ], 0.5, 800);
+            ], 0.5, 800, signal);
             if (reasoningPrompt === '__LMSTUDIO_CONNECTION_ERROR__') {
               return NextResponse.json({ error: 'У вас нестабильное соединение с моделью. Попробуйте позже.' }, { status: 503 });
             }
@@ -906,7 +985,7 @@ export async function POST(request: NextRequest) {
               { role: 'system', content: systemPrompt + (contextBlock ? '\n' + contextBlock : '') },
               ...conversationHistory,
               { role: 'user', content: reasoningPrompt }
-            ], 0.7, 800);
+            ], 0.7, 800, signal);
             if (reasoning === '__LMSTUDIO_CONNECTION_ERROR__') {
               return NextResponse.json({ error: 'У вас нестабильное соединение с моделью. Попробуйте позже.' }, { status: 503 });
             }
@@ -941,7 +1020,7 @@ export async function POST(request: NextRequest) {
                   chunkRes = await askLMStudio([
                     { role: 'system', content: systemPrompt },
                     { role: 'user', content: chunk }
-                  ], 0.7, 800);
+                  ], 0.7, 800, signal);
                   if (chunkRes === '__LMSTUDIO_CONNECTION_ERROR__') {
                     return NextResponse.json({ error: 'У вас нестабильное соединение с моделью. Попробуйте позже.' }, { status: 503 });
                   }
@@ -968,7 +1047,7 @@ export async function POST(request: NextRequest) {
                 reasoning = await askLMStudio([
                   { role: 'system', content: systemPrompt },
                   { role: 'user', content: mergePrompt }
-                ], 0.7, 800);
+                ], 0.7, 800, signal);
                 if (reasoning === '__LMSTUDIO_CONNECTION_ERROR__') {
                   return NextResponse.json({ error: 'У вас нестабильное соединение с моделью. Попробуйте позже.' }, { status: 503 });
                 }
@@ -1020,10 +1099,15 @@ export async function POST(request: NextRequest) {
       let answer: string = '';
       let answerAttempts = 0;
       while (answerAttempts < 2 && !answer) {
+        // Проверяем отмену перед каждой попыткой генерации ответа
+        if (signal.aborted) {
+          return NextResponse.json({ error: 'Запрос отменен пользователем' }, { status: 499 });
+        }
+        
         if (modelId === 'neironka') {
           console.log(`[AI] Попытка ${answerAttempts + 1}: отправка финального prompt в LM Studio:`);
           console.log(JSON.stringify(answerMessages, null, 2));
-          answer = await askLMStudio(answerMessages, 0.7, 1000);
+          answer = await askLMStudio(answerMessages, 0.7, 1000, signal);
           if (answer === '__LMSTUDIO_CONNECTION_ERROR__') {
             return NextResponse.json({ error: 'У вас нестабильное соединение с моделью. Попробуйте позже.' }, { status: 503 });
           }
@@ -1068,11 +1152,16 @@ export async function POST(request: NextRequest) {
         }
       ];
 
+      // Проверяем отмену перед генерацией обычного ответа
+      if (signal.aborted) {
+        return NextResponse.json({ error: 'Запрос отменен пользователем' }, { status: 499 });
+      }
+      
       let aiResponse: any;
       
       if (modelId === 'neironka') {
         // Для Neironka используем только LM Studio
-        const content = await askLMStudio(messages, 0.7, 1000);
+        const content = await askLMStudio(messages, 0.7, 1000, signal);
         if (content === '__LMSTUDIO_CONNECTION_ERROR__') {
           return NextResponse.json({ error: 'У вас нестабильное соединение с моделью. Попробуйте позже.' }, { status: 503 });
         }

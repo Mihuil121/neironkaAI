@@ -16,6 +16,7 @@ import Tesseract from 'tesseract.js';
 import { supabase } from '@/lib/supabaseClient';
 import Image from 'next/image';
 import AnimatedBotBall from './AnimatedBotBall';
+import BotAvatar from './BotAvatar';
 import mammoth from 'mammoth';
 import { useTheme } from 'next-themes';
 import ePub from 'epubjs';
@@ -536,6 +537,7 @@ export default function ChatInterface() {
   const [chunkProgress, setChunkProgress] = useState<{stage: string, current: number, total: number} | null>(null);
   const [editingChatId, setEditingChatId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
+  const [generatingChatId, setGeneratingChatId] = useState<string | null>(null);
   const [mobileBtnHover, setMobileBtnHover] = useState<string | null>(null);
   const [mobileBtnActive, setMobileBtnActive] = useState<string | null>(null);
   const [bookTranslationProgress, setBookTranslationProgress] = useState<{current: number, total: number, status: string} | null>(null);
@@ -860,16 +862,17 @@ export default function ChatInterface() {
         finalMessage = '[Ошибка: нет данных для отправки]';
       }
       
-      try {
-        await sendMessage(finalMessage, language, apiKey, {
-          fileName: uploadedFile.name,
-          fileType: uploadedFile.type,
-          fileSize: uploadedFile.size,
-          fileContent: fileContent // добавляем содержимое файла
-        });
-      } finally {
-        
-      }
+          try {
+      setGeneratingChatId(currentChatId);
+      await sendMessage(finalMessage, language, apiKey, {
+        fileName: uploadedFile.name,
+        fileType: uploadedFile.type,
+        fileSize: uploadedFile.size,
+        fileContent: fileContent // добавляем содержимое файла
+      });
+    } finally {
+      setGeneratingChatId(null);
+    }
       setMessage('');
       setUploadedFile(null);
       const textarea = document.querySelector('textarea.' + styles.inputBarInput) as HTMLTextAreaElement | null;
@@ -888,9 +891,10 @@ export default function ChatInterface() {
     let finalMessage = message.trim();
     
     try {
+      setGeneratingChatId(currentChatId);
       await sendMessage(finalMessage, language, apiKey);
     } finally {
-      
+      setGeneratingChatId(null);
     }
     setMessage('');
     setUploadedFile(null);
@@ -921,6 +925,35 @@ export default function ChatInterface() {
   const handleToggleWebSearch = useCallback(() => {
     if (currentChatId) toggleWebSearch(currentChatId);
   }, [currentChatId, toggleWebSearch]);
+
+  const handleToggleDeepSearch = useCallback(() => {
+    if (currentChatId) {
+      // Если оба включены - выключаем оба
+      if (currentChat?.reasoningEnabled && currentChat?.webSearchEnabled) {
+        toggleReasoning(currentChatId);
+        toggleWebSearch(currentChatId);
+      }
+      // Если только reasoning включен - включаем webSearch
+      else if (currentChat?.reasoningEnabled && !currentChat?.webSearchEnabled) {
+        toggleWebSearch(currentChatId);
+      }
+      // Если только webSearch включен - включаем reasoning
+      else if (!currentChat?.reasoningEnabled && currentChat?.webSearchEnabled) {
+        toggleReasoning(currentChatId);
+      }
+      // Если оба выключены - включаем оба
+      else {
+        toggleReasoning(currentChatId);
+        toggleWebSearch(currentChatId);
+      }
+    }
+  }, [currentChatId, currentChat?.reasoningEnabled, currentChat?.webSearchEnabled, toggleReasoning, toggleWebSearch]);
+
+  const handleCancelRequest = useCallback(() => {
+    if (currentChatId) {
+      cancelRequest(currentChatId);
+    }
+  }, [currentChatId, cancelRequest]);
 
   const handleFileUpload = useCallback(async (file: File) => {
     setFileLoading(true);
@@ -1290,9 +1323,10 @@ export default function ChatInterface() {
     if (!userMsg || !userMsg.content) return;
     
     try {
+      setGeneratingChatId(currentChatId);
       await sendMessage(userMsg.content, language, apiKey);
     } finally {
-      
+      setGeneratingChatId(null);
     }
   }, [isLoading, isThinking, currentChat, sendMessage, language, apiKey]);
 
@@ -1333,7 +1367,7 @@ export default function ChatInterface() {
         {/* Sidebar (desktop/tablet only) */}
         <aside className={styles.sidebar + (isSidebarCollapsed ? ' ' + styles.sidebarCollapsed : '')}>
           <div className={styles.sidebarHeader}>
-            <AnimatedBotBall size={32} />
+            <BotAvatar size={32} isGenerating={false} />
             <span
               className={styles.appName}
               style={{ color: chatThemeLight ? '#000' : '#ededed' }}
@@ -1460,7 +1494,7 @@ export default function ChatInterface() {
         {typeof window !== 'undefined' && window.innerWidth <= 767 && (
           <div>
             <div className={styles.mobileHeader}>
-              <AnimatedBotBall size={32} />
+              <BotAvatar size={32} isGenerating={false} />
               <span className={styles.appName} style={{ color: chatThemeLight ? '#000' : '#ededed' }}>Neironka Ai</span>
               <AnimatedHamburger isOpen={mobileMenuOpen} onClick={() => setMobileMenuOpen(!mobileMenuOpen)} />
             </div>
@@ -1576,7 +1610,7 @@ export default function ChatInterface() {
           >
             {!currentChat || currentChat.messages.length === 0 ? (
               <div className={styles.welcomeMessage}>
-                <div className={styles.welcomeIcon}><AnimatedBotBall size={64} /></div>
+                <div className={styles.welcomeIcon}><BotAvatar size={64} isGenerating={false} /></div>
                 <h2>{t('welcome')}</h2>
                 <p>{t('welcomeSubtitle')}</p>
               </div>
@@ -1590,7 +1624,7 @@ export default function ChatInterface() {
                   {/* Иконка только для бота, сверху */}
                   {msg.role === "assistant" && (
                     <div className={styles.messageAvatar}>
-                      <AnimatedBotBall size={40} />
+                      <BotAvatar size={40} isGenerating={false} />
                     </div>
                   )}
                   <div className={styles.messageContent}>
@@ -1819,9 +1853,10 @@ export default function ChatInterface() {
                               useChatStore.getState().deleteMessage(chatId, msg.id);
                               
                               try {
+                                setGeneratingChatId(currentChatId);
                                 await sendMessage(userMsg.content, language, apiKey);
                               } finally {
-                                
+                                setGeneratingChatId(null);
                               }
                             }} title="Перегенерировать ответ"><FiRefreshCw /></button>
                           </div>
@@ -1835,10 +1870,10 @@ export default function ChatInterface() {
               ))
             )}
 
-            {isThinking || isLoading ? (
+            {(isThinking || isLoading) && generatingChatId === currentChatId ? (
               <div className={`${styles.message} ${styles.aiMessage}`}>
                 <div className={styles.messageAvatar}>
-                  <AnimatedBotBall size={40} />
+                  <BotAvatar size={40} isGenerating={true} />
                 </div>
                 <div className={styles.messageContent}>
                   <ProgressStage isThinking={isThinking} chunkProgress={chunkProgress} isLoading={isLoading} reasoningEnabled={currentChat?.reasoningEnabled} webSearchEnabled={currentChat?.webSearchEnabled} />
@@ -1846,7 +1881,7 @@ export default function ChatInterface() {
               </div>
             ) : null}
 
-            {isThinking && chunkProgress && (
+            {isThinking && chunkProgress && generatingChatId === currentChatId && (
               <div style={{textAlign: 'center', color: '#f59e42', fontWeight: 600, margin: '16px 0'}}>
                 {chunkProgress.stage}: {chunkProgress.current} из {chunkProgress.total}
               </div>
@@ -1914,11 +1949,22 @@ export default function ChatInterface() {
           {/* Input-бар */}
           {isMobile && (
             <div className={styles.mobileActions} style={{position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 102, width: '100vw', margin: 0}}>
-              {[
-                { key: 'reason', onClick: handleToggleReasoning, icon: <FiZap size={20} />, label: t('deepThink'), active: currentChat?.reasoningEnabled },
-                { key: 'web', onClick: handleToggleWebSearch, icon: <FiSearch size={20} />, label: t('webSearch'), active: currentChat?.webSearchEnabled },
-                { key: 'settings', onClick: () => setShowSettings(true), icon: <FiSettings size={20} />, label: t('settings'), active: false },
-              ].map(btn => {
+              <AnimatePresence mode="wait">
+                {(() => {
+                  // Если оба включены - показываем DeepSearch
+                  if (currentChat?.reasoningEnabled && currentChat?.webSearchEnabled) {
+                    return [
+                      { key: 'deepsearch', onClick: handleToggleDeepSearch, icon: <FiZap size={20} />, label: 'DeepSearch', active: true },
+                      { key: 'settings', onClick: () => setShowSettings(true), icon: <FiSettings size={20} />, label: t('settings'), active: false },
+                    ];
+                  }
+                  // Иначе показываем отдельные кнопки
+                  return [
+                    { key: 'reason', onClick: handleToggleReasoning, icon: <FiZap size={20} />, label: t('deepThink'), active: currentChat?.reasoningEnabled },
+                    { key: 'web', onClick: handleToggleWebSearch, icon: <FiSearch size={20} />, label: t('webSearch'), active: currentChat?.webSearchEnabled },
+                    { key: 'settings', onClick: () => setShowSettings(true), icon: <FiSettings size={20} />, label: t('settings'), active: false },
+                  ];
+                })().map(btn => {
                 // Определяем стили для светлой и тёмной темы
                 const isLight = chatThemeLight;
                 const isHovered = mobileBtnHover === btn.key;
@@ -1932,13 +1978,36 @@ export default function ChatInterface() {
                   border = '1.5px solid #f59e42';
                 }
                 return (
-                  <button
+                  <motion.button
                     key={btn.key}
                     type="button"
                     className={styles.controlBtn}
                     onClick={btn.onClick}
                     disabled={!currentChat && btn.key !== 'settings'}
                     title={btn.label}
+                    initial={{ 
+                      scale: 0.8, 
+                      opacity: 0,
+                      y: 20
+                    }}
+                    animate={{ 
+                      scale: 1, 
+                      opacity: 1,
+                      y: 0
+                    }}
+                    exit={{ 
+                      scale: 0.8, 
+                      opacity: 0,
+                      y: -20
+                    }}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    transition={{ 
+                      type: "spring", 
+                      stiffness: 300, 
+                      damping: 25,
+                      duration: 0.3
+                    }}
                     style={{
                       background: bg,
                       color,
@@ -1953,11 +2022,25 @@ export default function ChatInterface() {
                     onMouseDown={() => setMobileBtnActive(btn.key)}
                     onMouseUp={() => setMobileBtnActive(null)}
                   >
-                    {btn.icon}
-                    <span style={{ marginLeft: 6 }}>{btn.label}</span>
-                  </button>
+                    <motion.div
+                      initial={{ rotate: btn.key === 'deepsearch' ? -180 : 0 }}
+                      animate={{ rotate: 0 }}
+                      transition={{ duration: 0.4, ease: "easeOut" }}
+                    >
+                      {btn.icon}
+                    </motion.div>
+                    <motion.span
+                      initial={{ opacity: 0, x: -5 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.1, duration: 0.2 }}
+                      style={{ marginLeft: 6 }}
+                    >
+                      {btn.label}
+                    </motion.span>
+                  </motion.button>
                 );
               })}
+              </AnimatePresence>
             </div>
           )}
           {isMobile && (
@@ -2067,71 +2150,157 @@ export default function ChatInterface() {
           {!isMobile && (
             <div className={styles.bottomControls}>
               <div className={styles.leftControls}>
-                {/* DeepThink (мышление) */}
-                <button
-                  type="button"
-                  className={styles.controlBtn + (currentChat?.reasoningEnabled ? ' ' + styles.controlBtnActive : '')}
-                  onClick={handleToggleReasoning}
-                  disabled={!currentChat}
-                  title={t('deepThinkTooltip')}
-                  style={!currentChat
-                    ? {
-                        background: '#444',
-                        color: '#888',
-                        borderColor: '#555',
-                        opacity: 0.7,
-                        cursor: 'not-allowed',
-                        boxShadow: 'none',
-                        fontWeight: 400
-                      }
-                    : {
-                        background: 'var(--sidebar-btn-bg, #23232a)',
-                        color: 'var(--sidebar-btn-fg, #b0b0b8)',
-                        borderColor: 'var(--sidebar-btn-bg, #23232a)',
+                {/* DeepSearch или отдельные кнопки с анимацией */}
+                <AnimatePresence mode="wait">
+                  {currentChat?.reasoningEnabled && currentChat?.webSearchEnabled ? (
+                    /* DeepSearch кнопка */
+                    <motion.button
+                      key="deepsearch"
+                      type="button"
+                      className={styles.controlBtn + ' ' + styles.controlBtnActive}
+                      onClick={handleToggleDeepSearch}
+                      disabled={!currentChat}
+                      title="DeepSearch: Глубокий анализ с веб-поиском"
+                      initial={{ 
+                        scale: 0.8, 
+                        opacity: 0,
+                        x: -20,
+                        background: '#23232a',
+                        color: '#b0b0b8'
+                      }}
+                      animate={{ 
+                        scale: 1, 
                         opacity: 1,
-                        cursor: 'pointer',
-                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-                        fontWeight: 400
+                        x: 0,
+                        background: '#f59e42',
+                        color: '#fff'
+                      }}
+                      exit={{ 
+                        scale: 0.8, 
+                        opacity: 0,
+                        x: 20
+                      }}
+                      transition={{ 
+                        type: "spring", 
+                        stiffness: 300, 
+                        damping: 25,
+                        duration: 0.4
+                      }}
+                      style={!currentChat
+                        ? {
+                            background: '#444',
+                            color: '#888',
+                            borderColor: '#555',
+                            opacity: 0.7,
+                            cursor: 'not-allowed',
+                            boxShadow: 'none',
+                            fontWeight: 400
+                          }
+                        : {
+                            borderColor: '#f59e42',
+                            opacity: 1,
+                            cursor: 'pointer',
+                            boxShadow: '0 2px 8px rgba(245,158,66,0.3)',
+                            fontWeight: 600
+                          }
                       }
-                  }
-                >
-                  <FiZap size={18} />
-                  <span>{t('deepThink')}</span>
-                </button>
-                {/* Веб-поиск */}
-                <button
-                  type="button"
-                  className={styles.controlBtn + (currentChat?.webSearchEnabled ? ' ' + styles.controlBtnActive : '')}
-                  onClick={handleToggleWebSearch}
-                  disabled={!currentChat}
-                  title={t('webSearchTooltip')}
-                  style={!currentChat
-                    ? {
-                        background: '#444',
-                        color: '#888',
-                        borderColor: '#555',
-                        opacity: 0.7,
-                        cursor: 'not-allowed',
-                        boxShadow: 'none',
-                        fontWeight: 400
-                      }
-                    : {
-                        background: 'var(--sidebar-btn-bg, #23232a)',
-                        color: 'var(--sidebar-btn-fg, #b0b0b8)',
-                        borderColor: 'var(--sidebar-btn-bg, #23232a)',
-                        opacity: 1,
-                        cursor: 'pointer',
-                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-                        fontWeight: 400
-                      }
-                  }
-                >
-                  <FiSearch size={18} />
-                  <span>{t('webSearch')}</span>
-                </button>
+                    >
+                      <motion.div
+                        initial={{ rotate: -180 }}
+                        animate={{ rotate: 0 }}
+                        transition={{ duration: 0.5, ease: "easeOut" }}
+                      >
+                        <FiZap size={18} />
+                      </motion.div>
+                      <motion.span
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.2, duration: 0.3 }}
+                      >
+                        DeepSearch
+                      </motion.span>
+                    </motion.button>
+                  ) : (
+                    <motion.div
+                      key="separate-buttons"
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      transition={{ duration: 0.3 }}
+                      style={{ display: 'flex', gap: '8px' }}
+                    >
+                      {/* DeepThink (мышление) */}
+                      <motion.button
+                        type="button"
+                        className={styles.controlBtn + (currentChat?.reasoningEnabled ? ' ' + styles.controlBtnActive : '')}
+                        onClick={handleToggleReasoning}
+                        disabled={!currentChat}
+                        title={t('deepThinkTooltip')}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        style={!currentChat
+                          ? {
+                              background: '#444',
+                              color: '#888',
+                              borderColor: '#555',
+                              opacity: 0.7,
+                              cursor: 'not-allowed',
+                              boxShadow: 'none',
+                              fontWeight: 400
+                            }
+                          : {
+                              background: 'var(--sidebar-btn-bg, #23232a)',
+                              color: 'var(--sidebar-btn-fg, #b0b0b8)',
+                              borderColor: 'var(--sidebar-btn-bg, #23232a)',
+                              opacity: 1,
+                              cursor: 'pointer',
+                              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                              fontWeight: 400
+                            }
+                        }
+                      >
+                        <FiZap size={18} />
+                        <span>{t('deepThink')}</span>
+                      </motion.button>
+                      {/* Веб-поиск */}
+                      <motion.button
+                        type="button"
+                        className={styles.controlBtn + (currentChat?.webSearchEnabled ? ' ' + styles.controlBtnActive : '')}
+                        onClick={handleToggleWebSearch}
+                        disabled={!currentChat}
+                        title={t('webSearchTooltip')}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        style={!currentChat
+                          ? {
+                              background: '#444',
+                              color: '#888',
+                              borderColor: '#555',
+                              opacity: 0.7,
+                              cursor: 'not-allowed',
+                              boxShadow: 'none',
+                              fontWeight: 400
+                            }
+                          : {
+                              background: 'var(--sidebar-btn-bg, #23232a)',
+                              color: 'var(--sidebar-btn-fg, #b0b0b8)',
+                              borderColor: 'var(--sidebar-btn-bg, #23232a)',
+                              opacity: 1,
+                              cursor: 'pointer',
+                              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                              fontWeight: 400
+                            }
+                        }
+                      >
+                        <FiSearch size={18} />
+                        <span>{t('webSearch')}</span>
+                      </motion.button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
                 {/* Выбор модели */}
                 <div className={styles.modelSelector}>
-                  <AnimatedBotBall size={24} />
+                  <BotAvatar size={24} isGenerating={false} />
                   <select
                     className={styles.modelSelect}
                     value={currentChat?.modelId || ''}
@@ -2231,6 +2400,7 @@ export default function ChatInterface() {
           onClose={() => setShowShareModal(false)}
           chatId={currentChatId || ''}
           chatTitle={currentChat?.title || 'Новый чат'}
+          chatMessages={currentChat?.messages || []}
         />
       </div>
     </>

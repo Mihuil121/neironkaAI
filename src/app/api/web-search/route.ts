@@ -6,6 +6,7 @@ const cache: Record<string, { results: any[], expires: number }> = {};
 export async function POST(request: NextRequest) {
   try {
     const { query } = await request.json();
+    const signal = request.signal;
 
     if (!query || typeof query !== 'string') {
       return NextResponse.json(
@@ -76,6 +77,11 @@ export async function POST(request: NextRequest) {
         }));
     };
 
+    // Проверяем отмену перед началом поиска
+    if (signal.aborted) {
+      return NextResponse.json({ error: 'Запрос отменен пользователем' }, { status: 499 });
+    }
+    
     let allResults: any[] = [];
     try {
       const [googleResults, ddgResults] = await Promise.all([
@@ -94,6 +100,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Ошибка поиска' }, { status: 500 });
     }
 
+    // Проверяем отмену перед возвратом результатов
+    if (signal.aborted) {
+      return NextResponse.json({ error: 'Запрос отменен пользователем' }, { status: 499 });
+    }
+    
     const filtered = allResults.slice(0, 4);
     if (filtered.length === 0) {
       return NextResponse.json({ error: 'Не найдено подходящих сайтов' }, { status: 404 });
