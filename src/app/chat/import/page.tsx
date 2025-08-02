@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useChatStore } from '@/store/useChatStore';
 import { useAuthStore } from '@/store/useAuthStore';
 
-export default function ImportChatPage() {
+function ImportChatContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { createChat, importChatMessages, currentChatId } = useChatStore();
@@ -168,5 +168,41 @@ export default function ImportChatPage() {
         <p style={{ opacity: 0.8 }}>Перенаправляем вас к чату...</p>
       </div>
     </div>
+  );
+}
+
+export default function ImportChatPage() {
+  return (
+    <Suspense fallback={
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '100vh',
+        background: '#1a1a1a',
+        color: '#fff'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ 
+            width: '40px', 
+            height: '40px', 
+            border: '3px solid #f59e42', 
+            borderTop: '3px solid transparent',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto 20px'
+          }} />
+          <p>Загружаем...</p>
+        </div>
+        <style jsx>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    }>
+      <ImportChatContent />
+    </Suspense>
   );
 } 
