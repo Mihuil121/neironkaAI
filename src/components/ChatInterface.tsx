@@ -998,42 +998,31 @@ export default function ChatInterface() {
     }
   }, []);
 
-  const handleYouTubeUpload = useCallback(async (url: string) => {
+  const handleUrlExtract = useCallback(async (url: string) => {
     setFileLoading(true);
-    
     try {
-      const response = await fetch('/api/youtube-transcript', {
+      const response = await fetch('/api/url-extract', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ url }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url })
       });
-
-      const data = await response.json();
-
+      const contentType = response.headers.get('content-type');
       if (!response.ok) {
-        throw new Error(data.error || 'Ошибка получения транскрипта');
+        const errorText = contentType && contentType.includes('application/json')
+          ? (await response.json()).error
+          : await response.text();
+        throw new Error(errorText || 'Ошибка извлечения текста');
       }
-
-      // Создаем виртуальный файл с транскриптом
-      const transcriptFile = new File(
-        [data.transcript],
-        `youtube-transcript-${data.videoId}.txt`,
-        { type: 'text/plain' }
-      );
-
-      setUploadedFile(transcriptFile);
+      const data = await response.json();
+      let fileText = data.text;
+      let fileName = 'site.txt';
+      if (data.type === 'video') {
+        fileName = data.videoTitle ? `${data.videoTitle}.txt` : 'video.txt';
+      }
+      const siteFile = new File([fileText], fileName, { type: 'text/plain' });
+      setUploadedFile(siteFile);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Ошибка при получении транскрипта';
-      console.error('YouTube transcript error:', err);
-      
-      // Показываем более информативное сообщение об ошибке
-      if (errorMessage.includes('Таймаут') || errorMessage.includes('соединение')) {
-        alert(`⚠️ ${errorMessage}\n\nВозможные решения:\n• Проверьте интернет-соединение\n• Попробуйте позже\n• Убедитесь, что видео имеет субтитры`);
-      } else {
-        alert(`❌ ${errorMessage}`);
-      }
+      alert('Ошибка при извлечении текста: ' + (err instanceof Error ? err.message : err));
     } finally {
       setFileLoading(false);
     }
@@ -1346,7 +1335,7 @@ export default function ChatInterface() {
           <HiPlus className={styles.fileChipIcon} />
           <span className={styles.fileName}>{uploadedFile?.name}</span>
           <button type="button" className={styles.fileChipRemove} onClick={handleRemoveFile} title={t('fileRemove')}>
-            <HiStop />
+            <FiX />
           </button>
         </span>
       </span>
@@ -2062,7 +2051,7 @@ export default function ChatInterface() {
                     maxHeight: isMobile ? 90 : 120,
                     fontSize: isMobile ? '1.05rem' : '1.13rem',
                     padding: isMobile ? '12px 10px' : '18px 28px',
-                    textAlign: 'center'
+                    textAlign: 'left'
                   }}
                   onInput={e => {
                     const target = e.target as HTMLTextAreaElement;
@@ -2113,7 +2102,7 @@ export default function ChatInterface() {
                     maxHeight: isMobile ? 90 : 120,
                     fontSize: isMobile ? '1.05rem' : '1.13rem',
                     padding: isMobile ? '12px 10px' : '18px 28px',
-                    textAlign: 'center'
+                    textAlign: 'left'
                   }}
                   onInput={e => {
                     const target = e.target as HTMLTextAreaElement;
@@ -2359,39 +2348,8 @@ export default function ChatInterface() {
           onClose={() => setShowUploadDropdown(false)}
           onFileUpload={handleFileUpload}
           onImageUpload={handleImageUpload}
-          onUrlExtract={async (url: string) => {
-            setFileLoading(true);
-            try {
-              const response = await fetch('/api/url-extract', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url })
-              });
-              const contentType = response.headers.get('content-type');
-              if (!response.ok) {
-                // Пробуем получить текст ошибки
-                const errorText = contentType && contentType.includes('application/json')
-                  ? (await response.json()).error
-                  : await response.text();
-                throw new Error(errorText || 'Ошибка извлечения текста');
-              }
-              if (contentType && contentType.includes('application/json')) {
-                const data = await response.json();
-                // Вместо handleLargeText — создаём виртуальный файл
-                const siteFile = new File([data.text], "site.txt", { type: "text/plain" });
-                setUploadedFile(siteFile);
-              } else {
-                const text = await response.text();
-                throw new Error('Сервер вернул не JSON: ' + text);
-              }
-            } catch (err) {
-              alert('Ошибка при извлечении текста с сайта: ' + (err instanceof Error ? err.message : err));
-            } finally {
-              setFileLoading(false);
-            }
-          }}
+          onUrlExtract={handleUrlExtract}
           onTranslateBook={handleTranslateBook}
-          onYouTubeUpload={() => {}}
         />
 
         {/* Share Modal */}

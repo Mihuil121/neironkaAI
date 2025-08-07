@@ -69,6 +69,7 @@
     "theme-ui": "^0.17.2",
     "xml2js": "^0.6.2",
     "youtube-transcript": "^1.2.1",
+    "yt-dlp-wrap": "^2.3.12",
     "zustand": "^5.0.6"
   },
   "devDependencies": {

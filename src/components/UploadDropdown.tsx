@@ -10,7 +10,6 @@ interface UploadDropdownProps {
   isOpen: boolean;
   onClose: () => void;
   onFileUpload: (file: File) => void;
-  onYouTubeUpload: (url: string) => void;
   onImageUpload: (file: File) => void;
   onUrlExtract: (url: string) => void;
   onTranslateBook: (file: File, language: string) => void;
@@ -20,7 +19,6 @@ export default function UploadDropdown({
   isOpen,
   onClose,
   onFileUpload,
-  onYouTubeUpload,
   onImageUpload,
   onUrlExtract,
   onTranslateBook
@@ -53,23 +51,6 @@ export default function UploadDropdown({
     if (file && file.type.startsWith('image/')) {
       onImageUpload(file);
       onClose();
-    }
-  };
-
-  const handleYouTubeSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (youtubeUrl.trim()) {
-      setIsLoading(true);
-      try {
-        await onYouTubeUpload(youtubeUrl.trim());
-        setYoutubeUrl('');
-        setShowYouTubeInput(false);
-        onClose();
-      } catch (error) {
-        // Ошибка уже обработана в ChatInterface
-      } finally {
-        setIsLoading(false);
-      }
     }
   };
 
@@ -239,7 +220,7 @@ export default function UploadDropdown({
             />
           </div>
 
-          {/* Вставка ссылки на сайт */}
+          {/* Вставка ссылки на сайт или видео */}
           <div className={styles.option}>
             {!showUrlInput ? (
               <button
